@@ -171,16 +171,20 @@ public final class StatsHud implements HudElement {
 	private static void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups) {
 		boolean heads = config.hudHeads;
 		boolean topModes = config.hudFkdr && config.hudTopMode;
-		int nameWidth = 0, starsWidth = 0, fkdrWidth = 0, healthWidth = 0, rowCount = 0;
+		// The FKDR column has two sub-columns, number and bracket, so both line up: "12  (20 1s)"
+		int nameWidth = 0, starsWidth = 0, numberWidth = 0, bracketWidth = 0, healthWidth = 0, rowCount = 0;
 		for (List<Row> group : groups) {
 			for (Row row : group) {
 				nameWidth = Math.max(nameWidth, font.width(row.name().text()));
 				if (config.hudStars) starsWidth = Math.max(starsWidth, font.width(row.stars().text()));
-				if (config.hudFkdr) fkdrWidth = Math.max(fkdrWidth, fkdrWidth(font, row, topModes));
+				if (config.hudFkdr) numberWidth = Math.max(numberWidth, font.width(row.fkdr().text()));
+				if (topModes) bracketWidth = Math.max(bracketWidth, font.width(row.topMode().text()));
 				if (config.hudHealth) healthWidth = Math.max(healthWidth, font.width(row.health().text()));
 				rowCount++;
 			}
 		}
+		int bracketX = numberWidth + StatText.HAIR_SPACE_WIDTH;
+		int fkdrWidth = bracketWidth == 0 ? numberWidth : bracketX + bracketWidth;
 
 		int rowHeight = font.lineHeight + 1;
 		int[] widths = {heads ? HEAD : 0, nameWidth, starsWidth, fkdrWidth, healthWidth};
@@ -213,9 +217,8 @@ public final class StatsHud implements HudElement {
 				}
 				x = cell(graphics, font, row.name(), x, y, nameWidth);
 				x = cell(graphics, font, row.stars(), x, y, starsWidth);
-				if (fkdrWidth > 0 && topModes && !row.topMode().text().isEmpty()) {
-					int after = x + font.width(row.fkdr().text());
-					graphics.text(font, row.topMode().text(), after, y, row.topMode().color(), true);
+				if (fkdrWidth > 0 && bracketWidth > 0 && !row.topMode().text().isEmpty()) {
+					graphics.text(font, row.topMode().text(), x + bracketX, y, row.topMode().color(), true);
 				}
 				x = cell(graphics, font, row.fkdr(), x, y, fkdrWidth);
 				cell(graphics, font, row.health(), x, y, healthWidth);
@@ -224,12 +227,6 @@ public final class StatsHud implements HudElement {
 			y += GROUP_GAP;
 		}
 		graphics.pose().popMatrix();
-	}
-
-	// FKDR and the top mode bracket share one column: "12(20 1s)"
-	private static int fkdrWidth(Font font, Row row, boolean topModes) {
-		if (!topModes || row.topMode().text().isEmpty()) return font.width(row.fkdr().text());
-		return font.width(row.fkdr().text() + row.topMode().text());
 	}
 
 	// Draws one cell if its column is visible and returns where the next column starts
