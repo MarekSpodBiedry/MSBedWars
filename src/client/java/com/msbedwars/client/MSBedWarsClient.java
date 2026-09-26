@@ -26,6 +26,7 @@ public final class MSBedWarsClient implements ClientModInitializer {
 		StatsService stats = new StatsService(new HypixelProfileScraper(), database);
 		LobbyTracker lobby = new LobbyTracker(stats, database);
 		PartyTracker party = new PartyTracker(lobby, stats);
+		new CaptureLog(FabricLoader.getInstance().getGameDir().resolve(MOD_ID).resolve("capture.log")).register();
 		lobby.register();
 		party.register();
 		MsbCommand.register(stats, database);

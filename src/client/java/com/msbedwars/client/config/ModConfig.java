@@ -43,6 +43,8 @@ public final class ModConfig {
 	public boolean nametags = true;
 	/** Shows the HUD everywhere with made-up players, for checking the layout. Fetches nothing. */
 	public boolean testMode = false;
+	/** Writes chat (with colors), sidebar and tab list changes to msbedwars/capture.log, for development. */
+	public boolean capture = false;
 
 	public float hudScale = 0.75f;
 	/** How far apart the two FKDRs must be before the top mode is shown, 0.15 = 15 %. */
