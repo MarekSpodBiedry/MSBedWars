@@ -8,11 +8,15 @@ Every feature has its own switch.
 
 1. `LobbyTracker` reads the sidebar every half second, but only on `hypixel.net`.
    Title "BED WARS" plus team rows like `R Red: ✔` means a game. "BED WARS" plus a `Map:`
-   row means the waiting room, where the `Mode:` row gives the mode. "BED WARS" alone
-   means the Bed Wars lobby. Joined mid-game? The mode is guessed from team sizes.
+   row means the waiting room, where the `Mode:` row gives the mode (`Mode: 4v4v4v4`).
+   "BED WARS" alone means the Bed Wars lobby; the main lobby's title is "HYPIXEL".
+   Hypixel splits rows with made-up codes like `Map: Aquarium§u`, so every `§x` is removed.
+   Joined mid-game? The mode is guessed from team sizes.
 2. In a match, every name in the tab list goes into `MatchRoster`, our own team included.
-   Players stay in the roster after they leave the tab list, along with their team color.
-   The roster resets when a new waiting room starts.
+   In the waiting room Hypixel scrambles everyone's name except ours and our party's, and
+   those rows use version 2 UUIDs, so they are skipped. Teams are only read once the game
+   runs, since the waiting room's scoreboard teams are rank colors. Players stay in the
+   roster after they leave the tab list. The roster resets when a new waiting room starts.
 3. `PartyTracker` reads the party from `/pl`. In the lobby and waiting room it sends `/pl`
    by itself when the party may have changed (at most every 15 s) and hides that output.
    Party members jump to the front of the stats queue, so they are ready before the game.

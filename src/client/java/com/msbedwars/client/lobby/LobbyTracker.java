@@ -118,7 +118,8 @@ public final class LobbyTracker {
 			} else if (fetch && needsRetry(name)) {
 				stats.request(name);
 			}
-			PlayerTeam team = scoreboard.getPlayersTeam(name);
+			// In the waiting room the scoreboard team is the rank color, not a Bed Wars team
+			PlayerTeam team = phase == BedwarsPhase.INGAME ? scoreboard.getPlayersTeam(name) : null;
 			if (team != null && team.getColor() != ChatFormatting.RESET) {
 				roster.setTeam(name, team.getColor());
 			}
@@ -180,8 +181,9 @@ public final class LobbyTracker {
 		return sawMap ? new SidebarReading(BedwarsPhase.PREGAME, mode) : new SidebarReading(BedwarsPhase.LOBBY, null);
 	}
 
+	// Hypixel splits sidebar rows with made-up codes like "§u" that Minecraft's own
+	// stripFormatting keeps ("Map: Aquarium§u"), so every "§" plus the next character goes
 	private static String plain(String text) {
-		String stripped = ChatFormatting.stripFormatting(text);
-		return stripped == null ? "" : stripped.trim();
+		return text == null ? "" : text.replaceAll("§.", "").trim();
 	}
 }
