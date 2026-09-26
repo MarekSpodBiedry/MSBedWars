@@ -17,9 +17,12 @@ Every feature has its own switch.
    those rows use version 2 UUIDs, so they are skipped. Teams are only read once the game
    runs, since the waiting room's scoreboard teams are rank colors. Players stay in the
    roster after they leave the tab list. The roster resets when a new waiting room starts.
-3. `PartyTracker` reads the party from `/pl`. In the lobby and waiting room it sends `/pl`
-   by itself when the party may have changed (at most every 15 s) and hides that output.
+3. `PartyTracker` reads the party from chat: `/pl` output when the player types it, and
+   join, leave, kick and disband messages. It never sends `/pl` or any command itself.
+   Names are picked by color (gray, lime, cyan, gold; the message text is yellow).
    Party members jump to the front of the stats queue, so they are ready before the game.
+   If exactly one party member is missing by real name and exactly one teammate is nicked,
+   the nick gets that party member's stats.
 4. `StatsService` fetches one name per second on a background thread. On a Cloudflare
    block (403) it pauses all lookups for 10 minutes instead of retrying.
 5. `HypixelProfileScraper` reads `https://hypixel.net/player/NAME`: stars, and wins,
@@ -52,7 +55,7 @@ src/client/java/com/msbedwars/client/
   config/                  switches, config/msbedwars.json
   stats/                   fetching, parsing, caching
   lobby/                   lobby / waiting room / game detection, match roster
-  party/                   /pl reading
+  party/                   party from chat
   data/                    players.json on disk
   display/                 HUD
 ```

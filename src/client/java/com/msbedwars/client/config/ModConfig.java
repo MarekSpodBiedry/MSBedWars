@@ -27,10 +27,8 @@ public final class ModConfig {
 	public boolean enabled = true;
 	/** Look up everyone in the match. */
 	public boolean fetchGamePlayers = true;
-	/** Read the party with /pl and look its members up first while queueing. */
+	/** Read the party from chat (/pl typed by the player) and look its members up first while queueing. */
 	public boolean fetchParty = true;
-	/** Hide the chat output of /pl when the mod sends it by itself. */
-	public boolean hideAutoPartyList = true;
 
 	public boolean hud = true;
 	public boolean hudHeads = true;

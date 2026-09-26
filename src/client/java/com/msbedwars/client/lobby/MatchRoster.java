@@ -4,6 +4,7 @@ import net.minecraft.ChatFormatting;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +28,17 @@ public final class MatchRoster {
 	}
 
 	private final Map<String, Member> members = new LinkedHashMap<>();
+	/** Nick in this match → real name, for a party member we could pin down behind a nick. */
+	private final Map<String, String> realNames = new HashMap<>();
+
+	public void setRealName(String nick, String realName) {
+		realNames.put(key(nick), realName);
+	}
+
+	/** The name to look stats up under: the real name behind a matched nick, otherwise the name itself. */
+	public String statsName(String name) {
+		return realNames.getOrDefault(key(name), name);
+	}
 
 	public boolean contains(String name) {
 		return members.containsKey(key(name));
@@ -59,6 +71,7 @@ public final class MatchRoster {
 
 	void clear() {
 		members.clear();
+		realNames.clear();
 	}
 
 	private static String key(String name) {

@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -44,6 +45,7 @@ public final class LobbyTracker {
 	private BedwarsPhase phase = BedwarsPhase.NONE;
 	/** Read from the waiting room's "Mode:" row. Null until known. */
 	private BedwarsMode sidebarMode;
+	private Supplier<List<String>> partyMembers = List::of;
 	private int ticks;
 
 	public LobbyTracker(StatsService stats, PlayerDatabase database) {
@@ -124,6 +126,37 @@ public final class LobbyTracker {
 				roster.setTeam(name, team.getColor());
 			}
 		}
+		if (phase == BedwarsPhase.INGAME && client.player != null) {
+			matchNickedPartyMember(client.player.getGameProfile().name(), tabNames);
+		}
+	}
+
+	/**
+	 * A party member playing under a nick is missing from the tab list under their real name.
+	 * If exactly one party member is missing and exactly one teammate is nicked, they are the
+	 * same person, so the nick gets the real player's stats. With two or more it stays a guess.
+	 */
+	private void matchNickedPartyMember(String self, List<String> tabNames) {
+		ChatFormatting ourTeam = roster.get(self).map(MatchRoster.Member::team).orElse(null);
+		if (ourTeam == null) return;
+		List<String> missing = partyMembers.get().stream()
+				.filter(member -> !member.equalsIgnoreCase(self))
+				.filter(member -> tabNames.stream().noneMatch(member::equalsIgnoreCase))
+				.toList();
+		List<String> nickedTeammates = roster.members().stream()
+				.filter(member -> member.team() == ourTeam && !member.name().equalsIgnoreCase(self))
+				.map(MatchRoster.Member::name)
+				.filter(name -> stats.get(name).orElse(null) instanceof StatsLookup.Nicked)
+				.toList();
+		if (missing.size() == 1 && nickedTeammates.size() == 1) {
+			roster.setRealName(nickedTeammates.getFirst(), missing.getFirst());
+			stats.requestFirst(missing.getFirst());
+		}
+	}
+
+	/** Where the current party comes from, set once the party tracker exists. */
+	public void setPartySource(Supplier<List<String>> partyMembers) {
+		this.partyMembers = partyMembers;
 	}
 
 	private boolean startsNewMatch(BedwarsPhase next, List<String> tabNames) {

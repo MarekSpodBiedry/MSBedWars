@@ -18,11 +18,12 @@ import net.minecraft.network.chat.TextColor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * Knows who is in our party by reading the chat output of /pl. Sends /pl by itself in the
- * Bed Wars lobby and waiting room when the party may have changed, hides that output,
- * and moves party members to the front of the stats queue.
+ * Knows who is in our party by reading party messages in chat, including /pl output when
+ * the player types it. Never sends /pl or any other command itself: automated commands
+ * could count as a macro on Hypixel. Party members jump to the front of the stats queue.
  *
  * Expected /pl output (one message or several):
  * <pre>
@@ -34,8 +35,6 @@ import java.util.Optional;
  * The dot is green for online members and red for offline ones.
  */
 public final class PartyTracker {
-	private static final long AUTO_LIST_COOLDOWN_MS = 15_000;
-	private static final long HIDE_WINDOW_MS = 3_000;
 	private static final int OFFLINE_DOT = TextColor.fromLegacyFormat(ChatFormatting.RED).getValue();
 
 	private final LobbyTracker lobby;
@@ -43,10 +42,6 @@ public final class PartyTracker {
 	/** Online members including us. Empty when not in a party. */
 	private List<String> members = List.of();
 	private List<String> pending;
-	/** True until we have read /pl since the last party change. */
-	private boolean stale = true;
-	private long lastAutoList;
-	private long hideUntil;
 	private int ticks;
 
 	public PartyTracker(LobbyTracker lobby, StatsService stats) {
@@ -55,116 +50,136 @@ public final class PartyTracker {
 	}
 
 	public void register() {
-		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) ->
-				Safe.check("party chat reading", () -> onGameMessage(message, overlay), true));
-		ClientTickEvents.END_CLIENT_TICK.register(client -> Safe.run("party tracking", () -> onTick(client)));
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			members = List.of();
-			stale = true;
+		ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+			if (!overlay) Safe.run("party chat reading", () -> StyledLine.split(message).forEach(this::readLine));
 		});
+		ClientTickEvents.END_CLIENT_TICK.register(client -> Safe.run("party tracking", this::onTick));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> members = List.of());
 	}
 
 	public List<String> members() {
 		return members;
 	}
 
-	private void onTick(Minecraft client) {
+	private void onTick() {
 		if (++ticks < 20) return;
 		ticks = 0;
-		ModConfig config = ModConfig.get();
 		BedwarsPhase phase = lobby.phase();
-		if (!config.fetchParty || !(phase == BedwarsPhase.LOBBY || phase == BedwarsPhase.PREGAME)) return;
-
-		long now = System.currentTimeMillis();
-		if (stale && now - lastAutoList > AUTO_LIST_COOLDOWN_MS && client.getConnection() != null) {
-			// Cleared on send, not on a readable answer, so an unexpected /pl format can never cause a /pl loop
-			stale = false;
-			lastAutoList = now;
-			hideUntil = now + HIDE_WINDOW_MS;
-			client.getConnection().sendCommand("pl");
-		}
+		if (!ModConfig.get().fetchParty || !(phase == BedwarsPhase.LOBBY || phase == BedwarsPhase.PREGAME)) return;
 		for (String member : members) {
 			boolean missing = stats.get(member).map(lookup -> lookup instanceof StatsLookup.Failed).orElse(true);
 			if (missing) stats.requestFirst(member);
 		}
 	}
 
-	/** @return false to hide the message */
-	private boolean onGameMessage(Component message, boolean overlay) {
-		if (overlay) return true;
-		boolean partOfList = false;
-		for (StyledLine line : StyledLine.split(message)) {
-			partOfList |= readLine(line);
-		}
-		boolean hide = partOfList && ModConfig.get().hideAutoPartyList && System.currentTimeMillis() < hideUntil;
-		return !hide;
-	}
-
-	// Returns true when the line belongs to /pl output
-	private boolean readLine(StyledLine line) {
+	// Names are found by color: Hypixel writes party messages in yellow and player names in
+	// their rank color (gray, lime, cyan or gold).
+	private void readLine(StyledLine line) {
 		String text = line.text().trim();
-		if (text.isEmpty()) return false;
-		if (text.chars().allMatch(c -> c == '-' || c == '▬')) return true;
+		if (text.isEmpty()) return;
+		// Party chat is "Party > name: message" and never changes who is in the party
+		if (text.startsWith("Party >")) return;
 
 		if (text.startsWith("You are not currently in a party") || text.startsWith("You are not in a party")) {
-			setMembers(List.of());
-			return true;
+			members = List.of();
+			return;
 		}
 		if (text.startsWith("Party Members (")) {
 			pending = new ArrayList<>();
-			return true;
+			return;
 		}
 		for (String label : new String[]{"Party Leader:", "Party Moderators:", "Party Members:"}) {
-			if (text.startsWith(label) && pending != null) {
-				pending.addAll(onlineNames(line, line.text().indexOf(label) + label.length()));
-				setMembers(List.copyOf(pending));
-				return true;
+			if (text.startsWith(label)) {
+				if (pending == null) pending = new ArrayList<>();
+				pending.addAll(line.names(true));
+				members = List.copyOf(pending);
+				return;
 			}
 		}
 
-		// Party chat is "Party > name: message" and never changes who is in the party
-		if (!text.startsWith("Party >") && changesParty(text)) {
-			if (text.startsWith("You left the party") || text.contains("disbanded")
-					|| text.startsWith("You have been kicked from the party")) {
-				setMembers(List.of());
-			} else {
-				stale = true;
-			}
+		if (text.startsWith("You left the party") || text.contains("disbanded")
+				|| text.startsWith("You have been kicked from the party")) {
+			members = List.of();
+		} else if (text.startsWith("You'll be partying with")) {
+			addMembers(line.names(false));
+		} else if (text.startsWith("You have joined") && text.contains("party")) {
+			// Only names the leader; the rest shows up once the player types /pl
+			addMembers(line.names(false));
+		} else if (text.contains("joined the party")) {
+			addMembers(line.names(false));
+		} else if (text.contains("left the party") || text.contains("removed from the party")
+				|| text.contains("removed from your party")) {
+			removeMembers(line.names(false));
 		}
-		return false;
 	}
 
-	private void setMembers(List<String> names) {
-		members = names;
-		stale = false;
-	}
-
-	private static boolean changesParty(String text) {
-		return text.contains("joined the party") || text.contains("left the party")
-				|| text.contains("removed from the party") || text.contains("disbanded")
-				|| text.contains("kicked") && text.contains("party") || text.contains("transferred the party");
-	}
-
-	// "[MVP+] Name ● Name2 ●": the name is the last word before each dot, skipped if the dot is red
-	private static List<String> onlineNames(StyledLine line, int from) {
-		List<String> names = new ArrayList<>();
-		String text = line.text();
-		int start = from;
-		for (int dot = text.indexOf('●', from); dot >= 0; dot = text.indexOf('●', dot + 1)) {
-			String[] words = text.substring(start, dot).trim().split("\\s+");
-			String name = words[words.length - 1];
-			if (!name.isEmpty() && !name.startsWith("[") && line.colorAt(dot) != OFFLINE_DOT) {
-				names.add(name);
-			}
-			start = dot + 1;
+	// Being in a party means we are in it too, so our own name comes along with the first member
+	private void addMembers(List<String> names) {
+		List<String> next = new ArrayList<>(members);
+		Minecraft client = Minecraft.getInstance();
+		if (next.isEmpty() && client.player != null) next.add(client.player.getGameProfile().name());
+		for (String name : names) {
+			if (next.stream().noneMatch(name::equalsIgnoreCase)) next.add(name);
 		}
-		return names;
+		members = List.copyOf(next);
+	}
+
+	private void removeMembers(List<String> names) {
+		List<String> next = new ArrayList<>(members);
+		next.removeIf(member -> names.stream().anyMatch(member::equalsIgnoreCase));
+		// Only us left means no party
+		members = next.size() <= 1 ? List.of() : List.copyOf(next);
 	}
 
 	/** One line of a chat message with the text color of every character. */
 	private record StyledLine(String text, int[] colors) {
+		private static final Set<Integer> NAME_COLORS = Set.of(
+				TextColor.fromLegacyFormat(ChatFormatting.GRAY).getValue(),
+				TextColor.fromLegacyFormat(ChatFormatting.GREEN).getValue(),
+				TextColor.fromLegacyFormat(ChatFormatting.AQUA).getValue(),
+				TextColor.fromLegacyFormat(ChatFormatting.GOLD).getValue());
+
 		int colorAt(int index) {
 			return index < colors.length ? colors[index] : -1;
+		}
+
+		/**
+		 * Player names in this line: runs of name characters written in a rank color, outside
+		 * rank tags like "[MVP+]". With {@code onlineOnly}, names followed by a red dot are skipped.
+		 */
+		List<String> names(boolean onlineOnly) {
+			List<String> names = new ArrayList<>();
+			int bracketDepth = 0;
+			int i = 0;
+			while (i < text.length()) {
+				char c = text.charAt(i);
+				if (c == '[') bracketDepth++;
+				if (c == ']') bracketDepth = Math.max(0, bracketDepth - 1);
+				if (!isNameChar(c) || bracketDepth > 0) {
+					i++;
+					continue;
+				}
+				int start = i;
+				boolean rankColored = true;
+				while (i < text.length() && isNameChar(text.charAt(i))) {
+					rankColored &= NAME_COLORS.contains(colorAt(i));
+					i++;
+				}
+				String word = text.substring(start, i);
+				if (rankColored && word.length() <= 16 && !(onlineOnly && offlineDotAfter(i))) {
+					names.add(word);
+				}
+			}
+			return names;
+		}
+
+		private boolean offlineDotAfter(int from) {
+			int dot = text.indexOf('●', from);
+			return dot >= 0 && colorAt(dot) == OFFLINE_DOT;
+		}
+
+		private static boolean isNameChar(char c) {
+			return c == '_' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z';
 		}
 
 		static List<StyledLine> split(Component message) {
@@ -178,7 +193,8 @@ public final class PartyTracker {
 					// Old-style "§c" codes inside the text: apply the color, keep the code out of the text
 					if (c == '§' && i + 1 < part.length()) {
 						ChatFormatting code = ChatFormatting.getByCode(part.charAt(++i));
-						if (code != null && code.isColor()) color = TextColor.fromLegacyFormat(code).getValue();
+						if (code == ChatFormatting.RESET) color = styleColor == null ? -1 : styleColor.getValue();
+						else if (code != null && code.isColor()) color = TextColor.fromLegacyFormat(code).getValue();
 						continue;
 					}
 					text.append(c);

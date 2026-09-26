@@ -42,7 +42,7 @@ public final class NameTagStats {
 			line = StatText.nameTagLine(fake.lookup(), BedwarsMode.DOUBLES, fake.health() < 0 ? null : fake.health());
 		} else {
 			if (!lobby.phase().inMatch() || !lobby.roster().contains(playerName)) return;
-			StatsLookup lookup = stats.get(playerName).orElse(null);
+			StatsLookup lookup = stats.get(lobby.roster().statsName(playerName)).orElse(null);
 			if (lookup == null) return;
 			line = StatText.nameTagLine(lookup, lobby.mode(), StatText.tabHealth(Minecraft.getInstance(), playerName));
 		}

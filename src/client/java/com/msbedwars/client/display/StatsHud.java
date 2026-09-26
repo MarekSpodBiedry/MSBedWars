@@ -110,7 +110,10 @@ public final class StatsHud implements HudElement {
 		List<Row> noTeam = new ArrayList<>();
 		BedwarsMode mode = lobby.mode();
 		for (MatchRoster.Member member : lobby.roster().members()) {
-			Row row = row(client, member.name(), member.team(), mode);
+			// A nicked party member we matched shows under their real name, with the nick's skin
+			String realName = lobby.roster().statsName(member.name());
+			Row row = row(realName, member.team(), mode, stats.get(realName).orElse(null),
+					skin(client, member.name()), healthCell(client, member.name()));
 			if (member.team() == null) noTeam.add(row);
 			else byTeam.computeIfAbsent(member.team(), team -> new ArrayList<>()).add(row);
 		}
