@@ -20,11 +20,6 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.world.entity.player.PlayerSkin;
-import net.minecraft.world.scores.DisplaySlot;
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ReadOnlyScoreInfo;
-import net.minecraft.world.scores.ScoreHolder;
-import net.minecraft.world.scores.Scoreboard;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -158,12 +153,8 @@ public final class StatsHud implements HudElement {
 	}
 
 	private static Cell healthCell(Minecraft client, String name) {
-		Scoreboard scoreboard = client.level.getScoreboard();
-		Objective tabObjective = scoreboard.getDisplayObjective(DisplaySlot.LIST);
-		if (tabObjective == null) return Cell.EMPTY;
-		ReadOnlyScoreInfo score = scoreboard.getPlayerScoreInfo(ScoreHolder.forNameOnly(name), tabObjective);
-		if (score == null) return Cell.EMPTY;
-		return new Cell(String.valueOf(score.value()), StatColors.health(score.value()));
+		Integer health = StatText.tabHealth(client, name);
+		return health == null ? Cell.EMPTY : new Cell(String.valueOf(health), StatColors.health(health));
 	}
 
 	private PlayerSkin skin(Minecraft client, String name) {

@@ -41,6 +41,12 @@ final class TestPlayers {
 				new Player("PlayerFifteen", ChatFormatting.GRAY, found(1003, 3.3, 3.2, 3.4), 14));
 	}
 
+	/** A made-up player for any real name, the same one every time, for test mode name tags. */
+	static Player forName(String name) {
+		List<Player> pool = doublesMatch("You");
+		return pool.get(Math.floorMod(name.hashCode(), pool.size()));
+	}
+
 	static UUID uuid(String name) {
 		return UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8));
 	}

@@ -2,6 +2,9 @@ package com.msbedwars.client.display;
 
 /** ARGB colors for stat values. Alpha must be set or the text is invisible. */
 final class StatColors {
+	static final int SEPARATOR = 0xFFAAAAAA;
+	static final int NICK = 0xFFFF5555;
+
 	private StatColors() {
 	}
 

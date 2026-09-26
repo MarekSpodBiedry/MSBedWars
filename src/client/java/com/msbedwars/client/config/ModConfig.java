@@ -39,6 +39,8 @@ public final class ModConfig {
 	/** Most played mode's FKDR in brackets, when it differs enough from this mode's. */
 	public boolean hudTopMode = true;
 	public boolean hudHealth = true;
+	/** Stars, FKDR and health in a line above each player's name. */
+	public boolean nametags = true;
 	/** Shows the HUD everywhere with made-up players, for checking the layout. Fetches nothing. */
 	public boolean testMode = false;
 

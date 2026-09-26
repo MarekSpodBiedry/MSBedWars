@@ -1,6 +1,7 @@
 package com.msbedwars.client;
 
 import com.msbedwars.client.data.PlayerDatabase;
+import com.msbedwars.client.display.NameTagStats;
 import com.msbedwars.client.display.StatsHud;
 import com.msbedwars.client.lobby.LobbyTracker;
 import com.msbedwars.client.party.PartyTracker;
@@ -28,6 +29,7 @@ public final class MSBedWarsClient implements ClientModInitializer {
 		lobby.register();
 		party.register();
 		MsbCommand.register(stats, database);
+		NameTagStats.init(lobby, stats);
 
 		// Drawn under the tab list, so holding Tab still shows the full list on top
 		HudElementRegistry.attachElementBefore(VanillaHudElements.PLAYER_LIST,
