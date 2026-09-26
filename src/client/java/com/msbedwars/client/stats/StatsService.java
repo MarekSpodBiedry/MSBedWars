@@ -141,6 +141,10 @@ public final class StatsService {
 		} catch (IOException e) {
 			MSBedWarsClient.LOG.warn("Stats lookup failed for {}: {}", name, e.getMessage());
 			return new StatsLookup.Failed(e.getMessage());
+		} catch (RuntimeException e) {
+			// A parsing bug must not kill the worker thread, or no one gets looked up again
+			MSBedWarsClient.LOG.error("Stats lookup crashed for {}", name, e);
+			return new StatsLookup.Failed(String.valueOf(e.getMessage()));
 		}
 	}
 

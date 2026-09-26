@@ -1,5 +1,6 @@
 package com.msbedwars.client.party;
 
+import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
 import com.msbedwars.client.lobby.BedwarsPhase;
 import com.msbedwars.client.lobby.LobbyTracker;
@@ -54,8 +55,9 @@ public final class PartyTracker {
 	}
 
 	public void register() {
-		ClientReceiveMessageEvents.ALLOW_GAME.register(this::onGameMessage);
-		ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
+		ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) ->
+				Safe.check("party chat reading", () -> onGameMessage(message, overlay), true));
+		ClientTickEvents.END_CLIENT_TICK.register(client -> Safe.run("party tracking", () -> onTick(client)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			members = List.of();
 			stale = true;
@@ -75,6 +77,8 @@ public final class PartyTracker {
 
 		long now = System.currentTimeMillis();
 		if (stale && now - lastAutoList > AUTO_LIST_COOLDOWN_MS && client.getConnection() != null) {
+			// Cleared on send, not on a readable answer, so an unexpected /pl format can never cause a /pl loop
+			stale = false;
 			lastAutoList = now;
 			hideUntil = now + HIDE_WINDOW_MS;
 			client.getConnection().sendCommand("pl");

@@ -1,5 +1,6 @@
 package com.msbedwars.client.lobby;
 
+import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
 import com.msbedwars.client.data.PlayerDatabase;
 import com.msbedwars.client.data.PlayerRecord;
@@ -51,7 +52,7 @@ public final class LobbyTracker {
 	}
 
 	public void register() {
-		ClientTickEvents.END_CLIENT_TICK.register(this::onTick);
+		ClientTickEvents.END_CLIENT_TICK.register(client -> Safe.run("match tracking", () -> onTick(client)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			phase = BedwarsPhase.NONE;
 			endMatch();

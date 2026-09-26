@@ -1,5 +1,6 @@
 package com.msbedwars.client.display;
 
+import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
 import com.msbedwars.client.lobby.BedwarsPhase;
 import com.msbedwars.client.lobby.LobbyTracker;
@@ -67,6 +68,22 @@ public final class StatsHud implements HudElement {
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker delta) {
+		// A matrix pushed before a failure must still be popped, or the rest of the HUD draws scaled
+		Safe.run("HUD", () -> {
+			try {
+				render(graphics);
+			} finally {
+				if (pushed) {
+					graphics.pose().popMatrix();
+					pushed = false;
+				}
+			}
+		});
+	}
+
+	private boolean pushed;
+
+	private void render(GuiGraphicsExtractor graphics) {
 		Minecraft client = Minecraft.getInstance();
 		ModConfig config = ModConfig.get();
 		BedwarsPhase phase = lobby.phase();
@@ -168,7 +185,7 @@ public final class StatsHud implements HudElement {
 		return skins.getOrDefault(name.toLowerCase(Locale.ROOT), DefaultPlayerSkin.getDefaultSkin());
 	}
 
-	private static void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups) {
+	private void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups) {
 		boolean heads = config.hudHeads;
 		boolean topModes = config.hudFkdr && config.hudTopMode;
 		// The FKDR column has two sub-columns, number and bracket, so both line up: "12  (20 1s)"
@@ -204,6 +221,7 @@ public final class StatsHud implements HudElement {
 		int top = Math.round(SCREEN_MARGIN / scale);
 
 		graphics.pose().pushMatrix();
+		pushed = true;
 		graphics.pose().scale(scale, scale);
 		graphics.fill(left, top, left + tableWidth, top + tableHeight, BACKGROUND);
 
@@ -227,6 +245,7 @@ public final class StatsHud implements HudElement {
 			y += GROUP_GAP;
 		}
 		graphics.pose().popMatrix();
+		pushed = false;
 	}
 
 	// Draws one cell if its column is visible and returns where the next column starts

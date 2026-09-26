@@ -1,5 +1,6 @@
 package com.msbedwars.client.display;
 
+import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
 import com.msbedwars.client.lobby.LobbyTracker;
 import com.msbedwars.client.stats.BedwarsMode;
@@ -28,6 +29,10 @@ public final class NameTagStats {
 
 	/** Called by the player renderer once the vanilla name tag is filled in. */
 	public static void apply(String playerName, AvatarRenderState state) {
+		Safe.run("name tag stats", () -> addLine(playerName, state));
+	}
+
+	private static void addLine(String playerName, AvatarRenderState state) {
 		ModConfig config = ModConfig.get();
 		if (lobby == null || state.nameTag == null || !config.enabled || !config.nametags) return;
 
