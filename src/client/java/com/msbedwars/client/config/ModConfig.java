@@ -39,6 +39,8 @@ public final class ModConfig {
 	/** Most played mode's FKDR in brackets, when it differs enough from this mode's. */
 	public boolean hudTopMode = true;
 	public boolean hudHealth = true;
+	/** Shows the HUD everywhere with made-up players, for checking the layout. Fetches nothing. */
+	public boolean testMode = false;
 
 	public float hudScale = 0.75f;
 	/** How far apart the two FKDRs must be before the top mode is shown, 0.15 = 15 %. */

@@ -81,7 +81,9 @@ public final class LobbyTracker {
 		if (++ticks < CHECK_EVERY_TICKS) return;
 		ticks = 0;
 
-		if (!ModConfig.get().enabled || client.level == null || client.getConnection() == null || !onHypixel(client)) {
+		ModConfig config = ModConfig.get();
+		// Test mode shows made-up players, so the real tracking and fetching stay off
+		if (!config.enabled || config.testMode || client.level == null || client.getConnection() == null || !onHypixel(client)) {
 			phase = BedwarsPhase.NONE;
 			return;
 		}
@@ -105,7 +107,7 @@ public final class LobbyTracker {
 		if (reading.mode() != null) sidebarMode = reading.mode();
 
 		long now = System.currentTimeMillis();
-		boolean fetch = ModConfig.get().fetchGamePlayers;
+		boolean fetch = config.fetchGamePlayers;
 		for (String name : tabNames) {
 			if (!roster.contains(name)) {
 				int matchesBefore = database.get(name).map(PlayerRecord::matchesTogether).orElse(0);

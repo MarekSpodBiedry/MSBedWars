@@ -75,21 +75,30 @@ public final class StatsHud implements HudElement {
 		Minecraft client = Minecraft.getInstance();
 		ModConfig config = ModConfig.get();
 		BedwarsPhase phase = lobby.phase();
-		if (!config.enabled || !config.hud || !phase.active() || client.options.hideGui || client.level == null) return;
+		if (!config.enabled || !config.hud || client.options.hideGui || client.level == null) return;
 
-		List<List<Row>> groups = phase.inMatch() ? matchGroups(client, config) : new ArrayList<>(List.of(partyRows(client, config)));
+		List<List<Row>> groups;
+		if (config.testMode) {
+			groups = testGroups(client);
+		} else if (phase.inMatch()) {
+			groups = matchGroups(client);
+		} else if (phase == BedwarsPhase.LOBBY) {
+			groups = new ArrayList<>(List.of(partyRows(client)));
+		} else {
+			return;
+		}
 		groups.removeIf(List::isEmpty);
 		if (groups.isEmpty()) return;
 		draw(graphics, client.font, config, groups);
 	}
 
-	private List<List<Row>> matchGroups(Minecraft client, ModConfig config) {
+	private List<List<Row>> matchGroups(Minecraft client) {
 		Map<ChatFormatting, List<Row>> byTeam = new LinkedHashMap<>();
 		TEAM_ORDER.forEach(team -> byTeam.put(team, new ArrayList<>()));
 		List<Row> noTeam = new ArrayList<>();
 		BedwarsMode mode = lobby.mode();
 		for (MatchRoster.Member member : lobby.roster().members()) {
-			Row row = row(client, config, member.name(), member.team(), mode);
+			Row row = row(client, member.name(), member.team(), mode);
 			if (member.team() == null) noTeam.add(row);
 			else byTeam.computeIfAbsent(member.team(), team -> new ArrayList<>()).add(row);
 		}
@@ -98,29 +107,46 @@ public final class StatsHud implements HudElement {
 		return groups;
 	}
 
-	private List<Row> partyRows(Minecraft client, ModConfig config) {
+	private List<Row> partyRows(Minecraft client) {
 		List<String> names = party.members();
 		if (names.isEmpty() && client.player != null) names = List.of(client.player.getGameProfile().name());
 		List<Row> rows = new ArrayList<>();
 		for (String name : names) {
-			rows.add(row(client, config, name, null, BedwarsMode.OVERALL));
+			rows.add(row(client, name, null, BedwarsMode.OVERALL));
 		}
 		return rows;
 	}
 
-	private Row row(Minecraft client, ModConfig config, String name, ChatFormatting team, BedwarsMode mode) {
+	// Made-up doubles match: 8 teams of 2, with every kind of row the HUD can show
+	private List<List<Row>> testGroups(Minecraft client) {
+		String self = client.player == null ? "You" : client.player.getGameProfile().name();
+		Map<ChatFormatting, List<Row>> byTeam = new LinkedHashMap<>();
+		TEAM_ORDER.forEach(team -> byTeam.put(team, new ArrayList<>()));
+		for (TestPlayers.Player player : TestPlayers.doublesMatch(self)) {
+			PlayerSkin skin = player.name().equals(self) ? skin(client, self) : DefaultPlayerSkin.get(TestPlayers.uuid(player.name()));
+			Cell health = player.health() < 0 ? Cell.EMPTY : new Cell(String.valueOf(player.health()), StatColors.health(player.health()));
+			byTeam.get(player.team()).add(row(player.name(), player.team(), BedwarsMode.DOUBLES, player.lookup(), skin, health));
+		}
+		return new ArrayList<>(byTeam.values());
+	}
+
+	private Row row(Minecraft client, String name, ChatFormatting team, BedwarsMode mode) {
+		return row(name, team, mode, stats.get(name).orElse(null), skin(client, name), healthCell(client, name));
+	}
+
+	private static Row row(String name, ChatFormatting team, BedwarsMode mode,
+	                       StatsLookup lookup, PlayerSkin skin, Cell health) {
 		Integer teamRgb = team == null ? null : team.getColor();
 		Cell nameCell = new Cell(name, teamRgb == null ? WHITE : 0xFF000000 | teamRgb);
 		Cell stars = Cell.EMPTY, fkdr = Cell.EMPTY, topMode = Cell.EMPTY;
 
-		StatsLookup lookup = stats.get(name).orElse(null);
 		switch (lookup) {
 			case StatsLookup.Found found -> {
 				BedwarsStats s = found.stats();
-				stars = new Cell(s.stars() + "✫", StatColors.stars(s.stars()));
+				stars = new Cell(StatText.stars(s.stars()), StatColors.stars(s.stars()));
 				double current = s.mode(mode).fkdr();
-				fkdr = new Cell(format(current), StatColors.fkdr(current));
-				topMode = topModeCell(config, s, mode, current);
+				fkdr = new Cell(StatText.fkdr(current), StatColors.fkdr(current));
+				topMode = StatText.topMode(s, mode).map(text -> new Cell(text, GRAY)).orElse(Cell.EMPTY);
 			}
 			case StatsLookup.Nicked ignored -> stars = new Cell("NICK", 0xFFFF5555);
 			case StatsLookup.Failed ignored -> fkdr = new Cell("?", GRAY);
@@ -128,18 +154,7 @@ public final class StatsHud implements HudElement {
 			case null -> {
 			}
 		}
-		return new Row(skin(client, name), nameCell, stars, fkdr, topMode, healthCell(client, name));
-	}
-
-	private static Cell topModeCell(ModConfig config, BedwarsStats s, BedwarsMode current, double currentFkdr) {
-		if (current == BedwarsMode.OVERALL) return Cell.EMPTY;
-		BedwarsMode top = s.mostPlayedMode().orElse(current);
-		if (top == current) return Cell.EMPTY;
-		double topFkdr = s.mode(top).fkdr();
-		boolean differs = currentFkdr == 0
-				? topFkdr > 0
-				: Math.abs(topFkdr - currentFkdr) / currentFkdr > config.topModeDifference;
-		return differs ? new Cell("(" + format(topFkdr) + " " + top.shortName() + ")", GRAY) : Cell.EMPTY;
+		return new Row(skin, nameCell, stars, fkdr, topMode, health);
 	}
 
 	private static Cell healthCell(Minecraft client, String name) {
@@ -164,20 +179,20 @@ public final class StatsHud implements HudElement {
 
 	private static void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups) {
 		boolean heads = config.hudHeads;
-		int nameWidth = 0, starsWidth = 0, fkdrWidth = 0, topWidth = 0, healthWidth = 0, rowCount = 0;
+		boolean topModes = config.hudFkdr && config.hudTopMode;
+		int nameWidth = 0, starsWidth = 0, fkdrWidth = 0, healthWidth = 0, rowCount = 0;
 		for (List<Row> group : groups) {
 			for (Row row : group) {
 				nameWidth = Math.max(nameWidth, font.width(row.name().text()));
 				if (config.hudStars) starsWidth = Math.max(starsWidth, font.width(row.stars().text()));
-				if (config.hudFkdr) fkdrWidth = Math.max(fkdrWidth, font.width(row.fkdr().text()));
-				if (config.hudFkdr && config.hudTopMode) topWidth = Math.max(topWidth, font.width(row.topMode().text()));
+				if (config.hudFkdr) fkdrWidth = Math.max(fkdrWidth, fkdrWidth(font, row, topModes));
 				if (config.hudHealth) healthWidth = Math.max(healthWidth, font.width(row.health().text()));
 				rowCount++;
 			}
 		}
 
 		int rowHeight = font.lineHeight + 1;
-		int[] widths = {heads ? HEAD : 0, nameWidth, starsWidth, fkdrWidth, topWidth, healthWidth};
+		int[] widths = {heads ? HEAD : 0, nameWidth, starsWidth, fkdrWidth, healthWidth};
 		int tableWidth = 0;
 		int columns = 0;
 		for (int width : widths) {
@@ -207,8 +222,11 @@ public final class StatsHud implements HudElement {
 				}
 				x = cell(graphics, font, row.name(), x, y, nameWidth);
 				x = cell(graphics, font, row.stars(), x, y, starsWidth);
+				if (fkdrWidth > 0 && topModes && !row.topMode().text().isEmpty()) {
+					int after = x + font.width(row.fkdr().text());
+					graphics.text(font, row.topMode().text(), after, y, row.topMode().color(), true);
+				}
 				x = cell(graphics, font, row.fkdr(), x, y, fkdrWidth);
-				x = cell(graphics, font, row.topMode(), x, y, topWidth);
 				cell(graphics, font, row.health(), x, y, healthWidth);
 				y += rowHeight;
 			}
@@ -217,14 +235,16 @@ public final class StatsHud implements HudElement {
 		graphics.pose().popMatrix();
 	}
 
+	// FKDR and the top mode bracket share one column: "12(20 1s)"
+	private static int fkdrWidth(Font font, Row row, boolean topModes) {
+		if (!topModes || row.topMode().text().isEmpty()) return font.width(row.fkdr().text());
+		return font.width(row.fkdr().text() + row.topMode().text());
+	}
+
 	// Draws one cell if its column is visible and returns where the next column starts
 	private static int cell(GuiGraphicsExtractor graphics, Font font, Cell cell, int x, int y, int columnWidth) {
 		if (columnWidth == 0) return x;
 		graphics.text(font, cell.text(), x, y, cell.color(), true);
 		return x + columnWidth + COLUMN_GAP;
-	}
-
-	private static String format(double value) {
-		return String.format(Locale.ROOT, "%.2f", value);
 	}
 }
