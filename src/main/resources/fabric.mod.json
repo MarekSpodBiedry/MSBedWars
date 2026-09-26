@@ -1,0 +1,27 @@
+{
+	"schemaVersion": 1,
+	"id": "msbedwars",
+	"version": "${version}",
+	"name": "MSBedWars",
+	"description": "Hypixel Bed Wars player stats in the tab list, above heads and on the HUD.",
+	"authors": ["MarekSpodBiedry"],
+	"icon": "assets/msbedwars/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.msbedwars.client.MSBedWarsClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "msbedwars.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
