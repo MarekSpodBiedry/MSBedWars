@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Knows who is in our party by reading party messages in chat, including /pl output when
@@ -36,6 +37,8 @@ import java.util.Set;
  */
 public final class PartyTracker {
 	private static final int OFFLINE_DOT = TextColor.fromLegacyFormat(ChatFormatting.RED).getValue();
+	// "[67✫] [VIP+] Name: message": optional tags, a name, then a colon
+	private static final Pattern PLAYER_CHAT = Pattern.compile("^(?:\\[[^\\]]*\\]\\s*)*[A-Za-z0-9_]{1,16}: ");
 
 	private final LobbyTracker lobby;
 	private final StatsService stats;
@@ -89,13 +92,25 @@ public final class PartyTracker {
 			return;
 		}
 		for (String label : new String[]{"Party Leader:", "Party Moderators:", "Party Members:"}) {
-			if (text.startsWith(label)) {
-				if (pending == null) pending = new ArrayList<>();
+			if (text.startsWith(label) && pending != null) {
 				pending.addAll(line.names(true));
-				members = List.copyOf(pending);
 				return;
 			}
 		}
+		// /pl ends with a dashed line; the list is published once there, so the HUD never
+		// shows a half-read party between the "Leader" and "Members" lines
+		if (pending != null && text.chars().allMatch(c -> c == '-')) {
+			members = List.copyOf(pending);
+			pending = null;
+			return;
+		}
+
+		// A player talking about the party ("[67✫] [VIP+] PlayerTwo: you disbanded the party?")
+		// is chat, not a party event
+		if (PLAYER_CHAT.matcher(text).find()) return;
+		// "X has disconnected, they have 5 minutes to rejoin before they are removed from the party."
+		// X is still in the party until the "has been removed" message
+		if (text.contains("has disconnected")) return;
 
 		if (text.startsWith("You left the party") || text.contains("disbanded")
 				|| text.startsWith("You have been kicked from the party")) {
