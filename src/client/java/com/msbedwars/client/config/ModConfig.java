@@ -7,18 +7,13 @@ import com.msbedwars.client.MSBedWarsClient;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * Settings saved in config/msbedwars.json. Every boolean here is a feature switch
- * and shows up in /msb toggle automatically.
+ * Settings saved in config/msbedwars.json, changed in {@link ConfigScreen}.
  */
 public final class ModConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -34,7 +29,7 @@ public final class ModConfig {
 	public boolean hudHeads = true;
 	public boolean hudStars = true;
 	public boolean hudFkdr = true;
-	/** Most played mode's FKDR in brackets, when it differs enough from this mode's. */
+	/** Most played mode's FKDR in brackets, when it is enough higher than this mode's. */
 	public boolean hudTopMode = true;
 	public boolean hudHealth = true;
 	/** Stars, FKDR and health in a line above each player's name. */
@@ -55,38 +50,6 @@ public final class ModConfig {
 	public static ModConfig get() {
 		if (instance == null) instance = load();
 		return instance;
-	}
-
-	/** Names of all on/off switches, for the /msb command. */
-	public static List<String> toggleNames() {
-		List<String> names = new ArrayList<>();
-		for (Field field : ModConfig.class.getFields()) {
-			if (field.getType() == boolean.class && !Modifier.isStatic(field.getModifiers())) {
-				names.add(field.getName());
-			}
-		}
-		return names;
-	}
-
-	public boolean isOn(String toggle) {
-		try {
-			return ModConfig.class.getField(toggle).getBoolean(this);
-		} catch (ReflectiveOperationException e) {
-			throw new IllegalArgumentException("Unknown setting " + toggle, e);
-		}
-	}
-
-	/** Flips a switch and saves. @return the new value */
-	public boolean flip(String toggle) {
-		try {
-			Field field = ModConfig.class.getField(toggle);
-			boolean next = !field.getBoolean(this);
-			field.setBoolean(this, next);
-			save();
-			return next;
-		} catch (ReflectiveOperationException e) {
-			throw new IllegalArgumentException("Unknown setting " + toggle, e);
-		}
 	}
 
 	public void save() {

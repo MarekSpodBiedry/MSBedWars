@@ -2,7 +2,7 @@ package com.msbedwars.client;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
-import com.msbedwars.client.config.ModConfig;
+import com.msbedwars.client.config.ConfigScreen;
 import com.msbedwars.client.data.PlayerDatabase;
 import com.msbedwars.client.data.PlayerRecord;
 import com.msbedwars.client.stats.StatsLookup;
@@ -10,13 +10,12 @@ import com.msbedwars.client.stats.StatsService;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 /**
- * /msb                  lists every feature switch and whether it is on
- * /msb toggle NAME      flips one switch
- * /msb stats PLAYER     prints what the mod knows about a player
+ * /msb                  opens the settings screen
+ * /msb stats PLAYER     prints what the mod knows about a player, for debugging
  */
 final class MsbCommand {
 	private MsbCommand() {
@@ -25,39 +24,16 @@ final class MsbCommand {
 	static void register(StatsService stats, PlayerDatabase database) {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
 				dispatcher.register(ClientCommands.literal("msb")
-						.executes(MsbCommand::listToggles)
-						.then(ClientCommands.literal("toggle")
-								.then(ClientCommands.argument("setting", StringArgumentType.word())
-										.suggests((context, builder) -> {
-											ModConfig.toggleNames().forEach(builder::suggest);
-											return builder.buildFuture();
-										})
-										.executes(MsbCommand::toggle)))
+						.executes(context -> openSettings())
 						.then(ClientCommands.literal("stats")
 								.then(ClientCommands.argument("player", StringArgumentType.word())
 										.executes(context -> showStats(context, stats, database))))));
 	}
 
-	private static int listToggles(CommandContext<FabricClientCommandSource> context) {
-		ModConfig config = ModConfig.get();
-		context.getSource().sendFeedback(Component.literal("MSBedWars settings (/msb toggle <name>):").withStyle(ChatFormatting.GOLD));
-		for (String name : ModConfig.toggleNames()) {
-			boolean on = config.isOn(name);
-			context.getSource().sendFeedback(Component.literal(" " + name + ": ")
-					.append(Component.literal(on ? "ON" : "OFF").withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)));
-		}
-		return 1;
-	}
-
-	private static int toggle(CommandContext<FabricClientCommandSource> context) {
-		String name = StringArgumentType.getString(context, "setting");
-		if (!ModConfig.toggleNames().contains(name)) {
-			context.getSource().sendError(Component.literal("No setting called " + name + ". Type /msb to see them all."));
-			return 0;
-		}
-		boolean on = ModConfig.get().flip(name);
-		context.getSource().sendFeedback(Component.literal(name + " is now ")
-				.append(Component.literal(on ? "ON" : "OFF").withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED)));
+	// The chat screen closes right after a command runs, so the settings open one tick later
+	private static int openSettings() {
+		Minecraft client = Minecraft.getInstance();
+		client.schedule(() -> client.setScreen(new ConfigScreen(null)));
 		return 1;
 	}
 

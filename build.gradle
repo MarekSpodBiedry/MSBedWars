@@ -4,6 +4,7 @@ plugins {
 
 repositories {
 	mavenCentral()
+	maven { url = 'https://maven.terraformersmc.com/releases/' }
 }
 
 loom {
@@ -27,6 +28,9 @@ dependencies {
 
 	// Bundled inside the mod jar so players only need Fabric API
 	include implementation("org.jsoup:jsoup:${project.jsoup_version}")
+
+	// Only for the Configure button in Mod Menu; the mod works without Mod Menu installed
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {

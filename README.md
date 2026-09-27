@@ -2,7 +2,7 @@
 
 Client-side Fabric mod for Minecraft 26.1.2. It shows Hypixel Bed Wars stats in a HUD
 table. It only does anything on Hypixel, in the Bed Wars lobby and in Bed Wars games.
-Every feature has its own switch.
+Every feature has its own switch in the settings screen.
 
 ## How it works
 
@@ -45,15 +45,12 @@ Every feature has its own switch.
    and health from the tab list. Grouped by team in a match, the party in the lobby.
    `NameTagStats` puts `350✫ | 12 (20 1s) | 15` above each player's name.
 
-## Commands
+## Settings
 
-```
-/msb                  list every switch and whether it is on
-/msb toggle <name>    flip one switch
-/msb stats <player>   what the mod knows about a player
-```
+Open them with the Configure button in Mod Menu, or type `/msb`. Every switch has a
+tooltip, and changes are saved right away to `.minecraft/config/msbedwars.json`.
 
-Settings live in `.minecraft/config/msbedwars.json`.
+For debugging, `/msb stats <player>` prints what the mod knows about a player.
 
 ## Layout
 
@@ -61,7 +58,7 @@ Settings live in `.minecraft/config/msbedwars.json`.
 src/client/java/com/msbedwars/client/
   MSBedWarsClient.java     entry point
   MsbCommand.java          /msb
-  config/                  switches, config/msbedwars.json
+  config/                  settings screen, Mod Menu button, config/msbedwars.json
   stats/                   fetching, parsing, caching, stars from chat
   lobby/                   lobby / waiting room / game detection, match roster
   party/                   party from chat

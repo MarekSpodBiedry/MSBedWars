@@ -10,6 +10,9 @@
 	"entrypoints": {
 		"client": [
 			"com.msbedwars.client.MSBedWarsClient"
+		],
+		"modmenu": [
+			"com.msbedwars.client.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [
@@ -23,5 +26,8 @@
 		"minecraft": "~26.1.2",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }
