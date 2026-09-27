@@ -2,6 +2,8 @@ package com.msbedwars.client.display;
 
 import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
+import com.msbedwars.client.data.PlayerDatabase;
+import com.msbedwars.client.data.PlayerRecord;
 import com.msbedwars.client.lobby.LobbyTracker;
 import com.msbedwars.client.stats.BedwarsMode;
 import com.msbedwars.client.stats.StatsLookup;
@@ -18,13 +20,15 @@ import net.minecraft.network.chat.Component;
 public final class NameTagStats {
 	private static LobbyTracker lobby;
 	private static StatsService stats;
+	private static PlayerDatabase database;
 
 	private NameTagStats() {
 	}
 
-	public static void init(LobbyTracker lobbyTracker, StatsService statsService) {
+	public static void init(LobbyTracker lobbyTracker, StatsService statsService, PlayerDatabase playerDatabase) {
 		lobby = lobbyTracker;
 		stats = statsService;
+		database = playerDatabase;
 	}
 
 	/** Called by the player renderer once the vanilla name tag is filled in. */
@@ -39,12 +43,14 @@ public final class NameTagStats {
 		Component line;
 		if (config.testMode) {
 			TestPlayers.Player fake = TestPlayers.forName(playerName);
-			line = StatText.nameTagLine(fake.lookup(), BedwarsMode.DOUBLES, fake.health() < 0 ? null : fake.health());
+			line = StatText.nameTagLine(fake.lookup(), BedwarsMode.DOUBLES, null, fake.health() < 0 ? null : fake.health());
 		} else {
 			if (!lobby.phase().inMatch() || !lobby.roster().contains(playerName)) return;
-			StatsLookup lookup = stats.get(lobby.roster().statsName(playerName)).orElse(null);
+			String realName = lobby.roster().statsName(playerName);
+			StatsLookup lookup = stats.get(realName).orElse(null);
 			if (lookup == null) return;
-			line = StatText.nameTagLine(lookup, lobby.mode(), StatText.tabHealth(Minecraft.getInstance(), playerName));
+			Integer seenStars = database.get(realName).map(PlayerRecord::stars).orElse(null);
+			line = StatText.nameTagLine(lookup, lobby.mode(), seenStars, StatText.tabHealth(Minecraft.getInstance(), playerName));
 		}
 		state.scoreText = state.nameTag;
 		state.nameTag = line;

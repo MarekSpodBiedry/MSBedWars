@@ -2,6 +2,8 @@ package com.msbedwars.client.display;
 
 import com.msbedwars.client.Safe;
 import com.msbedwars.client.config.ModConfig;
+import com.msbedwars.client.data.PlayerDatabase;
+import com.msbedwars.client.data.PlayerRecord;
 import com.msbedwars.client.lobby.BedwarsPhase;
 import com.msbedwars.client.lobby.LobbyTracker;
 import com.msbedwars.client.lobby.MatchRoster;
@@ -57,13 +59,15 @@ public final class StatsHud implements HudElement {
 	private final LobbyTracker lobby;
 	private final PartyTracker party;
 	private final StatsService stats;
+	private final PlayerDatabase database;
 	/** Last skin seen per player, so people who left the tab list keep their face. */
 	private final Map<String, PlayerSkin> skins = new HashMap<>();
 
-	public StatsHud(LobbyTracker lobby, PartyTracker party, StatsService stats) {
+	public StatsHud(LobbyTracker lobby, PartyTracker party, StatsService stats, PlayerDatabase database) {
 		this.lobby = lobby;
 		this.party = party;
 		this.stats = stats;
+		this.database = database;
 	}
 
 	@Override
@@ -112,7 +116,7 @@ public final class StatsHud implements HudElement {
 		for (MatchRoster.Member member : lobby.roster().members()) {
 			// A nicked party member we matched shows under their real name, with the nick's skin
 			String realName = lobby.roster().statsName(member.name());
-			Row row = row(realName, member.team(), mode, stats.get(realName).orElse(null),
+			Row row = row(realName, member.team(), mode, stats.get(realName).orElse(null), seenStars(realName),
 					skin(client, member.name()), healthCell(client, member.name()));
 			if (member.team() == null) noTeam.add(row);
 			else byTeam.computeIfAbsent(member.team(), team -> new ArrayList<>()).add(row);
@@ -140,25 +144,31 @@ public final class StatsHud implements HudElement {
 		for (TestPlayers.Player player : TestPlayers.doublesMatch(self)) {
 			PlayerSkin skin = player.name().equals(self) ? skin(client, self) : DefaultPlayerSkin.get(TestPlayers.uuid(player.name()));
 			Cell health = player.health() < 0 ? Cell.EMPTY : new Cell(String.valueOf(player.health()), StatColors.health(player.health()));
-			byTeam.get(player.team()).add(row(player.name(), player.team(), BedwarsMode.DOUBLES, player.lookup(), skin, health));
+			byTeam.get(player.team()).add(row(player.name(), player.team(), BedwarsMode.DOUBLES, player.lookup(), null, skin, health));
 		}
 		return new ArrayList<>(byTeam.values());
 	}
 
 	private Row row(Minecraft client, String name, ChatFormatting team, BedwarsMode mode) {
-		return row(name, team, mode, stats.get(name).orElse(null), skin(client, name), healthCell(client, name));
+		return row(name, team, mode, stats.get(name).orElse(null), seenStars(name), skin(client, name), healthCell(client, name));
+	}
+
+	private Integer seenStars(String name) {
+		return database.get(name).map(PlayerRecord::stars).orElse(null);
 	}
 
 	private static Row row(String name, ChatFormatting team, BedwarsMode mode,
-	                       StatsLookup lookup, PlayerSkin skin, Cell health) {
+	                       StatsLookup lookup, Integer seenStars, PlayerSkin skin, Cell health) {
 		Integer teamRgb = team == null ? null : team.getColor();
 		Cell nameCell = new Cell(name, teamRgb == null ? WHITE : 0xFF000000 | teamRgb);
-		Cell stars = Cell.EMPTY, fkdr = Cell.EMPTY, topMode = Cell.EMPTY;
+		Cell stars = seenStars == null ? Cell.EMPTY : new Cell(StatText.stars(seenStars), StatColors.stars(seenStars));
+		Cell fkdr = Cell.EMPTY, topMode = Cell.EMPTY;
 
 		switch (lookup) {
 			case StatsLookup.Found found -> {
 				BedwarsStats s = found.stats();
-				stars = new Cell(StatText.stars(s.stars()), StatColors.stars(s.stars()));
+				Integer shown = StatText.shownStars(seenStars, s);
+				stars = new Cell(StatText.stars(shown), StatColors.stars(shown));
 				double current = s.mode(mode).fkdr();
 				fkdr = new Cell(StatText.fkdr(current), StatColors.fkdr(current));
 				topMode = StatText.topMode(s, mode).map(text -> new Cell(text, GRAY)).orElse(Cell.EMPTY);

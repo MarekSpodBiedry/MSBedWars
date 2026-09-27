@@ -66,7 +66,9 @@ final class MsbCommand {
 		stats.requestFirst(name);
 		String text = stats.get(name).map(MsbCommand::describe).orElse("not requested");
 		int together = database.get(name).map(PlayerRecord::matchesTogether).orElse(0);
-		context.getSource().sendFeedback(Component.literal(name + ": " + text + " | matches together: " + together));
+		Integer stars = database.get(name).map(PlayerRecord::stars).orElse(null);
+		context.getSource().sendFeedback(Component.literal(name + ": " + (stars == null ? "?" : stars) + " stars (from chat) | "
+				+ text + " | matches together: " + together));
 		return 1;
 	}
 
@@ -75,8 +77,8 @@ final class MsbCommand {
 			case StatsLookup.Loading ignored -> "loading, run the command again in a moment";
 			case StatsLookup.Nicked ignored -> "no hypixel.net profile (nicked?)";
 			case StatsLookup.Failed failed -> "failed: " + failed.reason();
-			case StatsLookup.Found found -> String.format("%d stars, FKDR %.2f, WLR %.2f",
-					found.stats().stars(), found.stats().overall().fkdr(), found.stats().overall().wlr());
+			case StatsLookup.Found found -> String.format("FKDR %.2f, WLR %.2f",
+					found.stats().overall().fkdr(), found.stats().overall().wlr());
 		};
 	}
 }

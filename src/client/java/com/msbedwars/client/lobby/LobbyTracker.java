@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -35,8 +36,11 @@ public final class LobbyTracker {
 	private static final int CHECK_EVERY_TICKS = 10;
 	// In-game sidebar rows look like "R Red: ✔" or "B Blue: 3"
 	private static final Pattern TEAM_ROW = Pattern.compile("^[RBGYAWPS] [A-Za-z]+: ");
+	// Bed Wars lobby sidebar row with our own stars: "Level: 21✫"
+	private static final Pattern LEVEL_ROW = Pattern.compile("^Level: (\\d{1,5})");
 
-	private record SidebarReading(BedwarsPhase phase, BedwarsMode mode) {
+	/** @param ownStars our Bed Wars stars from the lobby's "Level: 21✫" row, null elsewhere */
+	private record SidebarReading(BedwarsPhase phase, BedwarsMode mode, Integer ownStars) {
 	}
 
 	private final StatsService stats;
@@ -92,6 +96,9 @@ public final class LobbyTracker {
 		}
 		Scoreboard scoreboard = client.level.getScoreboard();
 		SidebarReading reading = readSidebar(scoreboard);
+		if (reading.ownStars() != null && client.player != null) {
+			database.recordStars(client.player.getGameProfile().name(), reading.ownStars(), System.currentTimeMillis());
+		}
 		if (!reading.phase().inMatch()) {
 			// The roster survives short gaps like the world switch at game start
 			phase = reading.phase();
@@ -198,20 +205,23 @@ public final class LobbyTracker {
 	private static SidebarReading readSidebar(Scoreboard scoreboard) {
 		Objective sidebar = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
 		if (sidebar == null || !plain(sidebar.getDisplayName().getString()).contains("BED WARS")) {
-			return new SidebarReading(BedwarsPhase.NONE, null);
+			return new SidebarReading(BedwarsPhase.NONE, null, null);
 		}
 
 		boolean sawMap = false;
+		Integer ownStars = null;
 		BedwarsMode mode = null;
 		for (PlayerScoreEntry entry : scoreboard.listPlayerScores(sidebar)) {
 			if (entry.isHidden()) continue;
 			PlayerTeam team = scoreboard.getPlayersTeam(entry.owner());
 			String row = plain(PlayerTeam.formatNameForTeam(team, entry.ownerName()).getString());
-			if (TEAM_ROW.matcher(row).find()) return new SidebarReading(BedwarsPhase.INGAME, null);
+			if (TEAM_ROW.matcher(row).find()) return new SidebarReading(BedwarsPhase.INGAME, null, null);
 			if (row.startsWith("Map:")) sawMap = true;
 			if (row.startsWith("Mode:")) mode = BedwarsMode.fromSidebar(row.substring(5));
+			Matcher level = LEVEL_ROW.matcher(row);
+			if (level.find()) ownStars = Integer.parseInt(level.group(1));
 		}
-		return sawMap ? new SidebarReading(BedwarsPhase.PREGAME, mode) : new SidebarReading(BedwarsPhase.LOBBY, null);
+		return sawMap ? new SidebarReading(BedwarsPhase.PREGAME, mode, null) : new SidebarReading(BedwarsPhase.LOBBY, null, ownStars);
 	}
 
 	// Hypixel splits sidebar rows with made-up codes like "§u" that Minecraft's own

@@ -12,6 +12,12 @@ public final class PlayerRecord {
 	long lastSeen;
 	/** Matches we have been in together, counting the current one once it is recorded. */
 	int matchesTogether;
+	/**
+	 * Bed Wars stars as last seen in chat ("[21✫] Name: hi") or, for us, the lobby sidebar.
+	 * hypixel.net's profile page always says level 0, so this is the only source. Null if never seen.
+	 */
+	Integer stars;
+	long starsSeenAt;
 
 	PlayerRecord() {
 	}
@@ -27,6 +33,8 @@ public final class PlayerRecord {
 		copy.firstSeen = firstSeen;
 		copy.lastSeen = lastSeen;
 		copy.matchesTogether = matchesTogether;
+		copy.stars = stars;
+		copy.starsSeenAt = starsSeenAt;
 		return copy;
 	}
 
@@ -52,5 +60,9 @@ public final class PlayerRecord {
 
 	public int matchesTogether() {
 		return matchesTogether;
+	}
+
+	public Integer stars() {
+		return stars;
 	}
 }

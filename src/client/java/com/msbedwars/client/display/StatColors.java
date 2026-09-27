@@ -13,7 +13,8 @@ final class StatColors {
 			0xFFAAAAAA, 0xFFFFFFFF, 0xFFFFAA00, 0xFF55FFFF, 0xFF00AA00,
 			0xFF00AAAA, 0xFFAA0000, 0xFFFF55FF, 0xFF5555FF, 0xFFAA00AA};
 
-	static int stars(int stars) {
+	static int stars(Integer stars) {
+		if (stars == null) return SEPARATOR;
 		return PRESTIGE[Math.min(stars / 100, PRESTIGE.length - 1)];
 	}
 

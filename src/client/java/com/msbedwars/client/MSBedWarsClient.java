@@ -5,6 +5,7 @@ import com.msbedwars.client.display.NameTagStats;
 import com.msbedwars.client.display.StatsHud;
 import com.msbedwars.client.lobby.LobbyTracker;
 import com.msbedwars.client.party.PartyTracker;
+import com.msbedwars.client.stats.ChatStars;
 import com.msbedwars.client.stats.HypixelProfileScraper;
 import com.msbedwars.client.stats.StatsService;
 import net.fabricmc.api.ClientModInitializer;
@@ -31,11 +32,12 @@ public final class MSBedWarsClient implements ClientModInitializer {
 		lobby.register();
 		party.register();
 		MsbCommand.register(stats, database);
-		NameTagStats.init(lobby, stats);
+		NameTagStats.init(lobby, stats, database);
+		new ChatStars(database).register();
 
 		// Drawn under the tab list, so holding Tab still shows the full list on top
 		HudElementRegistry.attachElementBefore(VanillaHudElements.PLAYER_LIST,
-				Identifier.fromNamespaceAndPath(MOD_ID, "stats_hud"), new StatsHud(lobby, party, stats));
+				Identifier.fromNamespaceAndPath(MOD_ID, "stats_hud"), new StatsHud(lobby, party, stats, database));
 
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
 			stats.shutdown();

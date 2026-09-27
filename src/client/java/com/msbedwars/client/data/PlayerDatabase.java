@@ -69,6 +69,17 @@ public final class PlayerDatabase {
 		dirty = true;
 	}
 
+	public synchronized void recordStars(String name, int stars, long seenAt) {
+		PlayerRecord record = players.computeIfAbsent(key(name), k -> new PlayerRecord(name));
+		if (record.stars != null && record.stars == stars) {
+			record.starsSeenAt = seenAt;
+			return;
+		}
+		record.stars = stars;
+		record.starsSeenAt = seenAt;
+		dirty = true;
+	}
+
 	public synchronized void recordStats(String name, BedwarsStats stats, long fetchedAt) {
 		PlayerRecord record = players.computeIfAbsent(key(name), k -> new PlayerRecord(name));
 		record.stats = stats;

@@ -41,13 +41,14 @@ public final class StatText {
 	}
 
 	/** The line above a player's name: "350✫ | 12 (20 1s) | 15" with a hair space, each part in its own color. */
-	public static Component nameTagLine(StatsLookup lookup, BedwarsMode mode, Integer health) {
+	public static Component nameTagLine(StatsLookup lookup, BedwarsMode mode, Integer seenStars, Integer health) {
 		MutableComponent line = Component.empty();
 		switch (lookup) {
 			case StatsLookup.Found found -> {
 				BedwarsStats stats = found.stats();
 				double fkdr = stats.mode(mode).fkdr();
-				line.append(colored(stars(stats.stars()), StatColors.stars(stats.stars())))
+				Integer shown = shownStars(seenStars, stats);
+				line.append(colored(stars(shown), StatColors.stars(shown)))
 						.append(colored(" | ", StatColors.SEPARATOR))
 						.append(colored(fkdr(fkdr), StatColors.fkdr(fkdr)));
 				topMode(stats, mode).ifPresent(bracket -> line.append(HAIR_SPACE).append(colored(bracket, StatColors.SEPARATOR)));
@@ -66,8 +67,18 @@ public final class StatText {
 		return Component.literal(text).withStyle(style -> style.withColor(argb & 0xFFFFFF));
 	}
 
-	public static String stars(int stars) {
-		return stars + "✫";
+	/** "21✫", or "?✫" when the stars are unknown. */
+	public static String stars(Integer stars) {
+		return (stars == null ? "?" : stars) + "✫";
+	}
+
+	/**
+	 * Stars seen in chat or the lobby sidebar win. hypixel.net's page always says level 0, so
+	 * a 0 from the stats means unknown; only made-up test stats are above 0 there.
+	 */
+	public static Integer shownStars(Integer seenStars, BedwarsStats stats) {
+		if (seenStars != null) return seenStars;
+		return stats != null && stats.stars() > 0 ? stats.stars() : null;
 	}
 
 	/** One decimal below 5 ("3.1"), whole numbers from 5 up ("12"). */
