@@ -87,8 +87,9 @@ public final class StatText {
 	}
 
 	/**
-	 * The most played mode's FKDR, e.g. "(20 1s)", when it is not the current mode and
-	 * differs from the current mode's FKDR by more than the configured share.
+	 * The most played mode's FKDR, e.g. "(20 1s)", when it is not the current mode and is
+	 * higher than the current mode's FKDR by more than the configured share. A player who is
+	 * better in their main mode is the one to watch out for; worse elsewhere does not matter.
 	 */
 	public static Optional<String> topMode(BedwarsStats stats, BedwarsMode current) {
 		if (current == BedwarsMode.OVERALL) return Optional.empty();
@@ -96,9 +97,7 @@ public final class StatText {
 		if (top == current) return Optional.empty();
 		double currentFkdr = stats.mode(current).fkdr();
 		double topFkdr = stats.mode(top).fkdr();
-		boolean differs = currentFkdr == 0
-				? topFkdr > 0
-				: Math.abs(topFkdr - currentFkdr) / currentFkdr > ModConfig.get().topModeDifference;
-		return differs ? Optional.of("(" + fkdr(topFkdr) + " " + top.shortName() + ")") : Optional.empty();
+		boolean higher = topFkdr > currentFkdr * (1 + ModConfig.get().topModeDifference);
+		return higher ? Optional.of("(" + fkdr(topFkdr) + " " + top.shortName() + ")") : Optional.empty();
 	}
 }

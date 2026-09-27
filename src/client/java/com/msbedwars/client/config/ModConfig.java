@@ -45,7 +45,7 @@ public final class ModConfig {
 	public boolean capture = false;
 
 	public float hudScale = 0.75f;
-	/** How far apart the two FKDRs must be before the top mode is shown, 0.15 = 15 %. */
+	/** How much higher the top mode's FKDR must be before it is shown, 0.15 = 15 %. */
 	public double topModeDifference = 0.15;
 
 	private static transient ModConfig instance;
