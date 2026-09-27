@@ -113,12 +113,16 @@ public final class LobbyTracker {
 		}
 
 		if (startsNewMatch(reading.phase(), tabNames)) endMatch();
+		// The waiting room's tab list scrambles everyone but us and the party, and sometimes
+		// leaves party members out, so there the party from /pl comes first; the tab list is
+		// only used when we know no party
+		List<String> players = reading.phase() == BedwarsPhase.PREGAME ? waitingRoomPlayers(client, tabNames) : tabNames;
 		phase = reading.phase();
 		if (reading.mode() != null) sidebarMode = reading.mode();
 
 		long now = System.currentTimeMillis();
 		boolean fetch = config.fetchGamePlayers;
-		for (String name : tabNames) {
+		for (String name : players) {
 			if (!roster.contains(name)) {
 				int matchesBefore = database.get(name).map(PlayerRecord::matchesTogether).orElse(0);
 				database.recordMatch(name, now);
@@ -159,6 +163,17 @@ public final class LobbyTracker {
 			roster.setRealName(nickedTeammates.getFirst(), missing.getFirst());
 			stats.requestFirst(missing.getFirst());
 		}
+	}
+
+	// Us plus the party from /pl, or the real names in the tab list when we know no party
+	private List<String> waitingRoomPlayers(Minecraft client, List<String> tabNames) {
+		List<String> party = partyMembers.get();
+		List<String> players = new ArrayList<>(party.isEmpty() ? tabNames : party);
+		if (client.player != null) {
+			String self = client.player.getGameProfile().name();
+			if (players.stream().noneMatch(self::equalsIgnoreCase)) players.addFirst(self);
+		}
+		return players;
 	}
 
 	/** Where the current party comes from, set once the party tracker exists. */
