@@ -12,29 +12,38 @@ Every feature has its own switch.
    "BED WARS" alone means the Bed Wars lobby; the main lobby's title is "HYPIXEL".
    Hypixel splits rows with made-up codes like `Map: Aquarium§u`, so every `§x` is removed.
    Joined mid-game? The mode is guessed from team sizes.
-2. In a match, every name in the tab list goes into `MatchRoster`, our own team included.
+2. In a game, every name in the tab list goes into `MatchRoster`, our own team included.
    In the waiting room Hypixel scrambles everyone's name except ours and our party's, and
-   those rows use version 2 UUIDs, so they are skipped. Teams are only read once the game
-   runs, since the waiting room's scoreboard teams are rank colors. Players stay in the
-   roster after they leave the tab list. The roster resets when a new waiting room starts.
+   the tab list sometimes leaves party members out, so there the roster is us plus the
+   `/pl` party; the tab list's real names (version 4 UUIDs) are only used when no party is
+   known. Teams are only read once the game runs, since the waiting room's scoreboard
+   teams are rank colors. Players stay in the roster after they leave the tab list. The
+   roster resets when a new waiting room starts.
 3. `PartyTracker` reads the party from chat: `/pl` output when the player types it, and
    join, leave, kick and disband messages. It never sends `/pl` or any command itself.
+   Player chat about the party and "has disconnected" notices are ignored, and `/pl` is
+   applied once at its closing dashed line.
    Names are picked by color (gray, lime, cyan, gold; the message text is yellow).
    Party members jump to the front of the stats queue, so they are ready before the game.
    If exactly one party member is missing by real name and exactly one teammate is nicked,
    the nick gets that party member's stats.
 4. `StatsService` fetches one name per second on a background thread. On a Cloudflare
    block (403) it pauses all lookups for 10 minutes instead of retrying.
-5. `HypixelProfileScraper` reads `https://hypixel.net/player/NAME`: stars, and wins,
-   losses, final kills, final deaths for overall, Solo, Doubles, 3v3v3v3 and 4v4v4v4.
+5. `HypixelProfileScraper` reads `https://hypixel.net/player/NAME`: wins, losses, final
+   kills and final deaths for overall, Solo, Doubles, 3v3v3v3 and 4v4v4v4.
    A 404 means no profile, which in a match is almost always a nick.
-   The page does **not** list beds broken or lost.
-6. `PlayerDatabase` saves every player we meet to `.minecraft/msbedwars/players.json`:
-   last stats and when they were pulled, first and last meeting, and matches together.
+   The page does **not** list beds broken or lost, and its Bed Wars "Level" is always 0.
+6. `ChatStars` learns stars from chat: `[21✫] [MVP+] Name: hi`, with any icon after the
+   number. Our own stars come from the lobby sidebar's `Level: 21✫` row. Unknown stars
+   show as `?✫`.
+7. `PlayerDatabase` saves every player we meet to `.minecraft/msbedwars/players.json`:
+   last stats and when they were pulled, stars seen in chat, first and last meeting, and
+   matches together.
    Stats younger than 24 hours are reused instead of pulled again, even after a restart.
-7. `StatsHud` draws the table in the top right corner: head, name, stars, FKDR in the
-   current mode, the most played mode's FKDR in brackets when it differs by more than
-   15 %, and health from the tab list. Grouped by team in a match, the party in the lobby.
+8. `StatsHud` draws the table in the top right corner: head, name, stars, FKDR in the
+   current mode, the most played mode's FKDR in brackets when it is more than 15 % higher,
+   and health from the tab list. Grouped by team in a match, the party in the lobby.
+   `NameTagStats` puts `350✫ | 12 (20 1s) | 15` above each player's name.
 
 ## Commands
 
@@ -53,11 +62,11 @@ src/client/java/com/msbedwars/client/
   MSBedWarsClient.java     entry point
   MsbCommand.java          /msb
   config/                  switches, config/msbedwars.json
-  stats/                   fetching, parsing, caching
+  stats/                   fetching, parsing, caching, stars from chat
   lobby/                   lobby / waiting room / game detection, match roster
   party/                   party from chat
   data/                    players.json on disk
-  display/                 HUD
+  display/                 HUD, name tags
 ```
 
 ## Build
