@@ -9,14 +9,16 @@ import java.util.regex.Pattern;
 
 /**
  * Learns Bed Wars stars from chat. In Bed Wars lobbies and games Hypixel puts them in front
- * of every message: "[21✫] [MVP+] PlayerOne: hi" or "[1✫] PlayerThree: hi". The star symbol
- * changes with prestige, so any of them counts. hypixel.net's profile page always says
+ * of every message: "[21✫] [MVP+] PlayerOne: hi" or "[1✫] PlayerThree: hi". The icon changes
+ * with prestige and can be a cosmetic, so any icon counts. hypixel.net's profile page always says
  * level 0, so this (and the lobby sidebar for our own stars) is where stars come from.
  */
 public final class ChatStars {
-	// [stars+symbol], then any rank tags like [MVP+], then the name right before the colon
-	private static final Pattern STARS_THEN_NAME =
-			Pattern.compile("^\\[(\\d{1,5})[✫✪⚝✥✯✰]\\]\\s*(?:\\[[^\\]]*\\]\\s*)*([A-Za-z0-9_]{1,16})\\s*:");
+	// Optional tags like [SHOUT] [RED], then [stars+icon], then rank tags like [MVP+], then the
+	// name right before the colon. The icon is any 1-2 characters (✫ ✪ ✦ ⚝ and cosmetic ones),
+	// so new icons need no update.
+	private static final Pattern STARS_THEN_NAME = Pattern.compile(
+			"^(?:\\[[A-Z]+\\]\\s*)*\\[(\\d{1,5})[^\\]\\d\\s]{1,2}\\]\\s*(?:\\[[^\\]]*\\]\\s*)*([A-Za-z0-9_]{1,16})\\s*:");
 
 	private final PlayerDatabase database;
 
