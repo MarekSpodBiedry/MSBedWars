@@ -75,6 +75,16 @@ public final class ConfigScreen extends Screen {
 		row(toggle("Clean sidebar", "Redraws Hypixel's Bed Wars sidebar shorter: 2K 3F 1B, map and mode on one line, no web address.",
 						config.sidebar, v -> config.sidebar = v),
 				toggle("24-hour clock", "Time on the date line as 13:05 instead of 1:05 PM.", config.clock24h, v -> config.clock24h = v));
+		row(Button.builder(Component.literal("Accent color: ")
+								.append(Component.literal("■ " + ColorPickerScreen.hex(config.accentColor))
+										.withStyle(style -> style.withColor(config.accentColor))),
+						button -> minecraft.setScreen(new ColorPickerScreen(this, "Accent color", config.accentColor, color -> {
+							config.accentColor = color;
+							config.save();
+						})))
+				.size(BUTTON_WIDTH, BUTTON_HEIGHT)
+				.tooltip(Tooltip.create(Component.literal("Color of the letters the mod adds to the sidebar (K, F, B, FKDR). Gray by default.")))
+				.build());
 
 		section("Development");
 		row(toggle("Test mode", "Shows made-up players everywhere so you can check the layout. Looks nothing up.",
@@ -97,9 +107,15 @@ public final class ConfigScreen extends Screen {
 		int leftX = width / 2 - BUTTON_WIDTH - COLUMN_GAP / 2;
 		left.setPosition(leftX, y);
 		addRenderableWidget(left);
-		right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
-		addRenderableWidget(right);
+		if (right != null) {
+			right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
+			addRenderableWidget(right);
+		}
 		y += BUTTON_HEIGHT + ROW_GAP;
+	}
+
+	private void row(AbstractWidget left) {
+		row(left, null);
 	}
 
 	private CycleButton<Boolean> toggle(String label, String tooltip, boolean value, Consumer<Boolean> setter) {
