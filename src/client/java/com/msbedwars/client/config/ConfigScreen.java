@@ -71,6 +71,11 @@ public final class ConfigScreen extends Screen {
 						value -> String.format(Locale.ROOT, "+%d%%", Math.round(value * 100)),
 						value -> config.topModeDifference = value));
 
+		section("Sidebar");
+		row(toggle("Clean sidebar", "Redraws Hypixel's Bed Wars sidebar shorter: 2K 3F 1B, map and mode on one line, no web address.",
+						config.sidebar, v -> config.sidebar = v),
+				toggle("24-hour clock", "Time on the date line as 13:05 instead of 1:05 PM.", config.clock24h, v -> config.clock24h = v));
+
 		section("Development");
 		row(toggle("Test mode", "Shows made-up players everywhere so you can check the layout. Looks nothing up.",
 						config.testMode, v -> config.testMode = v),
@@ -91,8 +96,8 @@ public final class ConfigScreen extends Screen {
 	private void row(AbstractWidget left, AbstractWidget right) {
 		int leftX = width / 2 - BUTTON_WIDTH - COLUMN_GAP / 2;
 		left.setPosition(leftX, y);
-		right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
 		addRenderableWidget(left);
+		right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
 		addRenderableWidget(right);
 		y += BUTTON_HEIGHT + ROW_GAP;
 	}

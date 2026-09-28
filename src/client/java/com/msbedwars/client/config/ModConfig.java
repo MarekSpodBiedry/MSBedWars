@@ -34,6 +34,12 @@ public final class ModConfig {
 	public boolean hudHealth = true;
 	/** Stars, FKDR and health in a line above each player's name. */
 	public boolean nametags = true;
+	/** Redraws Hypixel's Bed Wars sidebar shorter: merged stat lines, no web address. */
+	public boolean sidebar = true;
+	/** Color of the letters the mod adds to the sidebar (K, F, B, FKDR...), as 0xRRGGBB. Gray by default. */
+	public int accentColor = 0xAAAAAA;
+	/** Time on the sidebar's date line as 13:05 instead of 1:05 PM. */
+	public boolean clock24h = true;
 	/** Shows the HUD everywhere with made-up players, for checking the layout. Fetches nothing. */
 	public boolean testMode = false;
 	/** Writes chat (with colors), sidebar and tab list changes to msbedwars/capture.log, for development. */

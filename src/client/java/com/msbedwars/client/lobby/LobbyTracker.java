@@ -102,6 +102,10 @@ public final class LobbyTracker {
 		if (!reading.phase().inMatch()) {
 			// The roster survives short gaps like the world switch at game start
 			phase = reading.phase();
+			// Our own FKDR for the lobby sidebar; cached for a day, so this rarely fetches
+			if (phase == BedwarsPhase.LOBBY && config.fetchGamePlayers && client.player != null) {
+				stats.request(client.player.getGameProfile().name());
+			}
 			return;
 		}
 

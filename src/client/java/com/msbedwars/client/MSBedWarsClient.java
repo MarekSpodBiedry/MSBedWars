@@ -1,6 +1,7 @@
 package com.msbedwars.client;
 
 import com.msbedwars.client.data.PlayerDatabase;
+import com.msbedwars.client.display.CleanSidebar;
 import com.msbedwars.client.display.NameTagStats;
 import com.msbedwars.client.display.StatsHud;
 import com.msbedwars.client.lobby.LobbyTracker;
@@ -38,6 +39,8 @@ public final class MSBedWarsClient implements ClientModInitializer {
 		// Drawn under the tab list, so holding Tab still shows the full list on top
 		HudElementRegistry.attachElementBefore(VanillaHudElements.PLAYER_LIST,
 				Identifier.fromNamespaceAndPath(MOD_ID, "stats_hud"), new StatsHud(lobby, party, stats, database));
+		// Our sidebar in Hypixel Bed Wars, the vanilla one everywhere else
+		HudElementRegistry.replaceElement(VanillaHudElements.SCOREBOARD, vanilla -> new CleanSidebar(vanilla, lobby, stats));
 
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
 			stats.shutdown();
