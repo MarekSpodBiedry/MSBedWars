@@ -44,11 +44,18 @@ Every feature has its own switch in the settings screen.
    current mode, the most played mode's FKDR in brackets when it is more than 15 % higher,
    and health from the tab list. Grouped by team in a match, the party in the lobby.
    `NameTagStats` puts `350✫ | 12 (20 1s) | 15` above each player's name.
+9. `CleanSidebar` redraws Hypixel's Bed Wars sidebar in the same spot, only in the Bed Wars
+   lobby, waiting room and game. Lobby: `288K 107W 2.43 FKDR` and `205k Tokens · 39/99 Tickets`.
+   Waiting room: `Aquarium · 4v4v4v4`, no version line. Game: `2K 3F 1B`, eliminated teams
+   dimmed. Everywhere: the date line gets the time before the server ID, and the web address
+   and double blank lines go. Unknown rows are kept; on any error the vanilla sidebar is drawn.
 
 ## Settings
 
 Open them with the Configure button in Mod Menu, or type `/msb`. Every switch has a
 tooltip, and changes are saved right away to `.minecraft/config/msbedwars.json`.
+The sidebar's accent color (the added `K`, `F`, `B`, `FKDR` letters) has its own picker:
+preset colors, hue / saturation / brightness sliders and a hex box. Gray by default.
 
 For debugging, `/msb stats <player>` prints what the mod knows about a player.
 
@@ -63,7 +70,7 @@ src/client/java/com/msbedwars/client/
   lobby/                   lobby / waiting room / game detection, match roster
   party/                   party from chat
   data/                    players.json on disk
-  display/                 HUD, name tags
+  display/                 HUD, name tags, sidebar
 ```
 
 ## Build
