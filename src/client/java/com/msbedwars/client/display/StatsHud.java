@@ -37,12 +37,14 @@ import java.util.Map;
  * In a match it lists everyone grouped by team; in the Bed Wars lobby it lists the party.
  */
 public final class StatsHud implements HudElement {
-	private static final int SCREEN_MARGIN = 4;
-	private static final int PADDING = 3;
+	// Leaves 2 px between the frame and the content
+	private static final int PADDING = 4;
 	private static final int COLUMN_GAP = 6;
 	private static final int GROUP_GAP = 3;
 	private static final int HEAD = 8;
 	private static final int BACKGROUND = 0xB0000000;
+	// Frame color when we are not on a team yet (lobby, waiting room)
+	private static final int NO_TEAM_FRAME = 0xFFAAAAAA;
 	private static final int GRAY = 0xFFAAAAAA;
 	private static final int WHITE = 0xFFFFFFFF;
 	private static final List<ChatFormatting> TEAM_ORDER = List.of(ChatFormatting.RED, ChatFormatting.BLUE,
@@ -63,7 +65,16 @@ public final class StatsHud implements HudElement {
 	/** Last skin seen per player, so people who left the tab list keep their face. */
 	private final Map<String, PlayerSkin> skins = new HashMap<>();
 
+	private static StatsHud instance;
+	/** True while the HUD editor is open: it draws the HUD itself, so the normal one stays hidden. */
+	public static boolean editing;
+	/** Set while the editor asks for a drawing: shows made-up players when there is nothing real to show. */
+	private boolean preview;
+	/** Where the table was last drawn, in GUI pixels: x, y, width, height. Null when it was not drawn. */
+	private int[] bounds;
+
 	public StatsHud(LobbyTracker lobby, PartyTracker party, StatsService stats, PlayerDatabase database) {
+		instance = this;
 		this.lobby = lobby;
 		this.party = party;
 		this.stats = stats;
@@ -87,14 +98,33 @@ public final class StatsHud implements HudElement {
 
 	private boolean pushed;
 
+	public static StatsHud instance() {
+		return instance;
+	}
+
+	/** Draws the HUD for the editor, with made-up players when not in a game or lobby. */
+	public void extractPreview(GuiGraphicsExtractor graphics) {
+		preview = true;
+		try {
+			extractRenderState(graphics, null);
+		} finally {
+			preview = false;
+		}
+	}
+
+	public int[] bounds() {
+		return bounds;
+	}
+
 	private void render(GuiGraphicsExtractor graphics) {
 		Minecraft client = Minecraft.getInstance();
 		ModConfig config = ModConfig.get();
 		BedwarsPhase phase = lobby.phase();
-		if (!config.enabled || !config.hud || client.options.hideGui || client.level == null) return;
+		bounds = null;
+		if (!preview && (editing || !config.enabled || !config.hud || client.options.hideGui || client.level == null)) return;
 
 		List<List<Row>> groups;
-		if (config.testMode) {
+		if (config.testMode || (preview && (client.level == null || !phase.active()))) {
 			groups = testGroups(client);
 		} else if (phase.inMatch()) {
 			groups = matchGroups(client);
@@ -104,8 +134,19 @@ public final class StatsHud implements HudElement {
 			return;
 		}
 		groups.removeIf(List::isEmpty);
+		if (groups.isEmpty() && preview) groups = testGroups(client);
 		if (groups.isEmpty()) return;
-		draw(graphics, client.font, config, groups);
+		draw(graphics, client.font, config, groups, frameColor(client, config));
+	}
+
+	// The frame takes the color of our own team; made-up test players put us on red
+	private int frameColor(Minecraft client, ModConfig config) {
+		if (config.testMode) return 0xFF000000 | ChatFormatting.RED.getColor();
+		if (client.player == null) return NO_TEAM_FRAME;
+		ChatFormatting team = lobby.roster().get(client.player.getGameProfile().name())
+				.map(MatchRoster.Member::team).orElse(null);
+		Integer rgb = team == null ? null : team.getColor();
+		return rgb == null ? NO_TEAM_FRAME : 0xFF000000 | rgb;
 	}
 
 	private List<List<Row>> matchGroups(Minecraft client) {
@@ -198,7 +239,7 @@ public final class StatsHud implements HudElement {
 		return skins.getOrDefault(name.toLowerCase(Locale.ROOT), DefaultPlayerSkin.getDefaultSkin());
 	}
 
-	private void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups) {
+	private void draw(GuiGraphicsExtractor graphics, Font font, ModConfig config, List<List<Row>> groups, int frameColor) {
 		boolean heads = config.hudHeads;
 		boolean topModes = config.hudFkdr && config.hudTopMode;
 		// The FKDR column has two sub-columns, number and bracket, so both line up: "12  (20 1s)"
@@ -229,14 +270,27 @@ public final class StatsHud implements HudElement {
 		tableWidth += Math.max(0, columns - 1) * COLUMN_GAP + PADDING * 2;
 		int tableHeight = rowCount * rowHeight + (groups.size() - 1) * GROUP_GAP + PADDING * 2 - 1;
 
+		// Anchor + offset, like "top right corner, 4 px in": the table keeps its corner when the
+		// window size or GUI scale changes. Kept fully on screen.
 		float scale = config.hudScale;
-		int left = Math.round((graphics.guiWidth() - SCREEN_MARGIN) / scale) - tableWidth;
-		int top = Math.round(SCREEN_MARGIN / scale);
+		float shownWidth = tableWidth * scale;
+		float shownHeight = tableHeight * scale;
+		float shownX = config.hudAnchorX * graphics.guiWidth() + config.hudOffsetX - config.hudAnchorX * shownWidth;
+		float shownY = config.hudAnchorY * graphics.guiHeight() + config.hudOffsetY - config.hudAnchorY * shownHeight;
+		shownX = Math.max(0, Math.min(shownX, graphics.guiWidth() - shownWidth));
+		shownY = Math.max(0, Math.min(shownY, graphics.guiHeight() - shownHeight));
+		bounds = new int[]{Math.round(shownX), Math.round(shownY), Math.round(shownWidth), Math.round(shownHeight)};
+		int left = Math.round(shownX / scale);
+		int top = Math.round(shownY / scale);
 
 		graphics.pose().pushMatrix();
 		pushed = true;
 		graphics.pose().scale(scale, scale);
-		graphics.fill(left, top, left + tableWidth, top + tableHeight, BACKGROUND);
+		if (config.hudBorder) {
+			roundedFrame(graphics, left, top, tableWidth, tableHeight, frameColor);
+		} else {
+			graphics.fill(left, top, left + tableWidth, top + tableHeight, BACKGROUND);
+		}
 
 		int y = top + PADDING;
 		for (List<Row> group : groups) {
@@ -259,6 +313,21 @@ public final class StatsHud implements HudElement {
 		}
 		graphics.pose().popMatrix();
 		pushed = false;
+	}
+
+	/**
+	 * Background with its 4 corner pixels left out, and a 1 px line 1 px inside its edge whose
+	 * corner pixels are also left out, so both read as slightly rounded.
+	 */
+	private static void roundedFrame(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int color) {
+		graphics.fill(x + 1, y, x + w - 1, y + h, BACKGROUND);
+		graphics.fill(x, y + 1, x + 1, y + h - 1, BACKGROUND);
+		graphics.fill(x + w - 1, y + 1, x + w, y + h - 1, BACKGROUND);
+
+		graphics.fill(x + 2, y + 1, x + w - 2, y + 2, color);
+		graphics.fill(x + 2, y + h - 2, x + w - 2, y + h - 1, color);
+		graphics.fill(x + 1, y + 2, x + 2, y + h - 2, color);
+		graphics.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, color);
 	}
 
 	// Draws one cell if its column is visible and returns where the next column starts

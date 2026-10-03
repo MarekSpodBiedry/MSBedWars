@@ -32,6 +32,8 @@ public final class ModConfig {
 	/** Most played mode's FKDR in brackets, when it is enough higher than this mode's. */
 	public boolean hudTopMode = true;
 	public boolean hudHealth = true;
+	/** Rounded frame around the HUD in the color of our team. */
+	public boolean hudBorder = true;
 	/** Stars, FKDR and health in a line above each player's name. */
 	public boolean nametags = true;
 	/** Redraws Hypixel's Bed Wars sidebar shorter: merged stat lines, no web address. */
@@ -46,6 +48,12 @@ public final class ModConfig {
 	public boolean capture = false;
 
 	public float hudScale = 0.75f;
+	/** HUD position: the screen point it is pinned to (0 = left/top, 0.5 = middle, 1 = right/bottom)... */
+	public float hudAnchorX = 1f;
+	public float hudAnchorY = 0f;
+	/** ...and how far from that point, in GUI pixels. Default: top right corner, 4 px in. */
+	public int hudOffsetX = -4;
+	public int hudOffsetY = 4;
 	/** How much higher the top mode's FKDR must be before it is shown, 0.15 = 15 %. */
 	public double topModeDifference = 0.15;
 

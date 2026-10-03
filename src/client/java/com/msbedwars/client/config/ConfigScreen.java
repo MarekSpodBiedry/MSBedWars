@@ -29,6 +29,9 @@ public final class ConfigScreen extends Screen {
 	private static final int SECTION_GAP = 14;
 	private static final int WHITE = 0xFFFFFFFF;
 	private static final int GOLD = 0xFFFFAA00;
+	private static final int CONTENT_TOP = 28;
+	private static final int FOOTER = 32;
+	private static final int SCROLL_STEP = 16;
 
 	private record SectionTitle(Component text, int y) {
 	}
@@ -36,6 +39,9 @@ public final class ConfigScreen extends Screen {
 	private final Screen parent;
 	private final List<SectionTitle> sectionTitles = new ArrayList<>();
 	private int y;
+	/** How far the settings are scrolled down, in pixels. */
+	private int scroll;
+	private int contentHeight;
 
 	public ConfigScreen(Screen parent) {
 		super(Component.literal("MSBedWars settings"));
@@ -46,7 +52,7 @@ public final class ConfigScreen extends Screen {
 	protected void init() {
 		ModConfig config = ModConfig.get();
 		sectionTitles.clear();
-		y = 32;
+		y = CONTENT_TOP + 4 - scroll;
 
 		section("General");
 		row(toggle("Mod enabled", "Turns the whole mod on or off.", config.enabled, v -> config.enabled = v),
@@ -65,6 +71,12 @@ public final class ConfigScreen extends Screen {
 		row(toggle("Top mode", "Most played mode's FKDR in brackets, when it is higher than this mode's.",
 						config.hudTopMode, v -> config.hudTopMode = v),
 				toggle("Health", "Health from the tab list.", config.hudHealth, v -> config.hudHealth = v));
+		row(toggle("Frame", "Rounded frame around the HUD in your team's color (gray before teams are known).",
+						config.hudBorder, v -> config.hudBorder = v),
+				Button.builder(Component.literal("Move HUD..."), button -> minecraft.setScreen(new HudPositionScreen(this)))
+						.size(BUTTON_WIDTH, BUTTON_HEIGHT)
+						.tooltip(Tooltip.create(Component.literal("Drag the HUD anywhere, scroll to resize it.")))
+						.build());
 		row(slider("HUD size", 0.5, 1.5, config.hudScale, value -> String.format(Locale.ROOT, "%d%%", Math.round(value * 100)),
 						value -> config.hudScale = (float) value),
 				slider("Top mode gap", 0, 1, config.topModeDifference,
@@ -92,26 +104,58 @@ public final class ConfigScreen extends Screen {
 				toggle("Capture", "Writes chat, sidebar and tab list changes to msbedwars/capture.log.",
 						config.capture, v -> config.capture = v));
 
-		y += SECTION_GAP - ROW_GAP;
+		contentHeight = y + scroll - CONTENT_TOP;
+		// After a resize the old scroll can be past the end: clamp and lay out again
+		if (scroll > maxScroll()) {
+			scroll = maxScroll();
+			rebuildWidgets();
+			return;
+		}
+		// Done stays at the bottom, outside the scrolling area
 		addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> onClose())
-				.bounds(width / 2 - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT).build());
+				.bounds(width / 2 - BUTTON_WIDTH / 2, height - FOOTER + 6, BUTTON_WIDTH, BUTTON_HEIGHT).build());
+	}
+
+	private int contentBottom() {
+		return height - FOOTER;
+	}
+
+	private int maxScroll() {
+		return Math.max(0, contentHeight - (contentBottom() - CONTENT_TOP));
+	}
+
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		int next = Math.max(0, Math.min(maxScroll(), scroll - (int) Math.round(scrollY * SCROLL_STEP)));
+		if (next != scroll) {
+			scroll = next;
+			rebuildWidgets();
+		}
+		return true;
 	}
 
 	private void section(String title) {
-		if (!sectionTitles.isEmpty()) y += SECTION_GAP - ROW_GAP;
-		sectionTitles.add(new SectionTitle(Component.literal(title), y));
+		if (y + scroll > CONTENT_TOP + 4) y += SECTION_GAP - ROW_GAP;
+		if (visible(y, font.lineHeight)) sectionTitles.add(new SectionTitle(Component.literal(title), y));
 		y += font.lineHeight + 4;
 	}
 
 	private void row(AbstractWidget left, AbstractWidget right) {
 		int leftX = width / 2 - BUTTON_WIDTH - COLUMN_GAP / 2;
-		left.setPosition(leftX, y);
-		addRenderableWidget(left);
-		if (right != null) {
-			right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
-			addRenderableWidget(right);
+		if (visible(y, BUTTON_HEIGHT)) {
+			left.setPosition(leftX, y);
+			addRenderableWidget(left);
+			if (right != null) {
+				right.setPosition(leftX + BUTTON_WIDTH + COLUMN_GAP, y);
+				addRenderableWidget(right);
+			}
 		}
 		y += BUTTON_HEIGHT + ROW_GAP;
+	}
+
+	// Rows cut off by the title or the Done button are left out, so nothing half-hidden is clickable
+	private boolean visible(int top, int rowHeight) {
+		return top >= CONTENT_TOP && top + rowHeight <= contentBottom();
 	}
 
 	private void row(AbstractWidget left) {
@@ -138,6 +182,15 @@ public final class ConfigScreen extends Screen {
 		graphics.centeredText(font, title, width / 2, 12, WHITE);
 		for (SectionTitle section : sectionTitles) {
 			graphics.centeredText(font, section.text(), width / 2, section.y(), GOLD);
+		}
+		// Scrollbar on the right of the buttons, only when everything does not fit
+		if (maxScroll() > 0) {
+			int barX = width / 2 + BUTTON_WIDTH + COLUMN_GAP / 2 + 6;
+			int area = contentBottom() - CONTENT_TOP;
+			int thumb = Math.max(16, area * area / (area + maxScroll()));
+			int thumbY = CONTENT_TOP + (area - thumb) * scroll / maxScroll();
+			graphics.fill(barX, CONTENT_TOP, barX + 3, contentBottom(), 0x40FFFFFF);
+			graphics.fill(barX, thumbY, barX + 3, thumbY + thumb, 0xFFAAAAAA);
 		}
 	}
 
